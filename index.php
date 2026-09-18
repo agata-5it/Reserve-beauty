@@ -10,7 +10,7 @@
     <main class="start">
         <p class="label">Projekt semestralny</p>
         <h1>Reserve Beauty</h1>
-        <p>System rezerwacji usług beauty.</p>
+        <p>System rezerwacji usług beauty</p>
         <p><?php echo 'Środowisko PHP działa poprawnie.'; ?></p>
     </main>
 </body>
