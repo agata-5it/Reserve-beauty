@@ -2,10 +2,10 @@
 -- version 5.2.1
 -- https://www.phpmyadmin.net/
 --
--- Host: 127.0.0.1
--- Generation Time: Wrz 15, 2026 at 11:44 AM
--- Wersja serwera: 10.4.32-MariaDB
--- Wersja PHP: 8.2.12
+-- Host: localhost
+-- Generation Time: Wrz 19, 2026 at 08:44 PM
+-- Wersja serwera: 10.4.28-MariaDB
+-- Wersja PHP: 8.2.4
 
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;
@@ -18,7 +18,7 @@ SET time_zone = "+00:00";
 /*!40101 SET NAMES utf8mb4 */;
 
 --
--- Database: `reserve-beauty`
+-- Database: `Reserve-beauty`
 --
 
 -- --------------------------------------------------------
@@ -140,7 +140,7 @@ CREATE TABLE `rezerwacje` (
   `status` enum('oczekujaca','potwierdzona','zrealizowana','anulowana') NOT NULL DEFAULT 'oczekujaca',
   `uwagi` text DEFAULT NULL,
   `utworzono_dnia` datetime NOT NULL DEFAULT current_timestamp()
-) ;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Dumping data for table `rezerwacje`
@@ -217,6 +217,35 @@ INSERT INTO `salony` (`id_salonu`, `nazwa`, `opis`, `miasto`, `ulica`, `nr_ulicy
 -- --------------------------------------------------------
 
 --
+-- Struktura tabeli dla tabeli `urlopy`
+--
+
+CREATE TABLE `urlopy` (
+  `id_urlopu` int(11) NOT NULL,
+  `id_pracownika` int(11) NOT NULL,
+  `data_od` date NOT NULL,
+  `data_do` date NOT NULL,
+  `status` enum('zaplanowany','anulowany') NOT NULL DEFAULT 'zaplanowany',
+  `utworzono_dnia` datetime NOT NULL DEFAULT current_timestamp()
+) ;
+
+--
+-- Dumping data for table `urlopy`
+--
+
+INSERT INTO `urlopy` (`id_urlopu`, `id_pracownika`, `data_od`, `data_do`, `status`, `utworzono_dnia`) VALUES
+(1, 1, '2026-09-20', '2026-09-21', 'zaplanowany', '2026-09-19 20:35:08'),
+(2, 3, '2026-11-11', '2026-11-18', 'zaplanowany', '2026-09-19 20:35:25'),
+(3, 5, '2026-09-27', '2026-09-29', 'zaplanowany', '2026-09-19 20:35:41'),
+(4, 1, '2026-10-11', '2026-10-16', 'zaplanowany', '2026-09-19 20:39:27'),
+(5, 1, '2026-09-07', '2026-09-08', 'anulowany', '2026-09-19 20:41:51'),
+(6, 1, '2026-09-07', '2026-09-10', 'zaplanowany', '2026-09-19 20:42:11'),
+(8, 2, '2026-09-21', '2026-09-22', 'zaplanowany', '2026-09-19 20:43:26'),
+(9, 5, '2026-09-21', '2026-09-22', 'zaplanowany', '2026-09-19 20:43:35');
+
+-- --------------------------------------------------------
+
+--
 -- Struktura tabeli dla tabeli `uslugi`
 --
 
@@ -229,7 +258,7 @@ CREATE TABLE `uslugi` (
   `czas_trwania` int(11) NOT NULL,
   `cena` decimal(10,2) NOT NULL,
   `aktywnosc` tinyint(1) NOT NULL DEFAULT 1
-) ;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Dumping data for table `uslugi`
@@ -324,6 +353,13 @@ ALTER TABLE `salony`
   ADD PRIMARY KEY (`id_salonu`);
 
 --
+-- Indeksy dla tabeli `urlopy`
+--
+ALTER TABLE `urlopy`
+  ADD PRIMARY KEY (`id_urlopu`),
+  ADD KEY `idx_urlopy_pracownik_status_daty` (`id_pracownika`,`status`,`data_od`,`data_do`);
+
+--
 -- Indeksy dla tabeli `uslugi`
 --
 ALTER TABLE `uslugi`
@@ -364,7 +400,7 @@ ALTER TABLE `pracownicy`
 -- AUTO_INCREMENT for table `rezerwacje`
 --
 ALTER TABLE `rezerwacje`
-  MODIFY `nr_rezerwacji` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `nr_rezerwacji` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
 
 --
 -- AUTO_INCREMENT for table `salony`
@@ -373,10 +409,16 @@ ALTER TABLE `salony`
   MODIFY `id_salonu` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
 
 --
+-- AUTO_INCREMENT for table `urlopy`
+--
+ALTER TABLE `urlopy`
+  MODIFY `id_urlopu` int(11) NOT NULL AUTO_INCREMENT;
+
+--
 -- AUTO_INCREMENT for table `uslugi`
 --
 ALTER TABLE `uslugi`
-  MODIFY `id_uslugi` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id_uslugi` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
 --
 -- AUTO_INCREMENT for table `uzytkownicy`
@@ -415,6 +457,12 @@ ALTER TABLE `rezerwacje`
   ADD CONSTRAINT `rezerwacje_ibfk_1` FOREIGN KEY (`id_uzytkownika`) REFERENCES `uzytkownicy` (`id_uzytkownika`) ON DELETE CASCADE,
   ADD CONSTRAINT `rezerwacje_ibfk_2` FOREIGN KEY (`id_pracownika`) REFERENCES `pracownicy` (`id_pracownika`) ON DELETE CASCADE,
   ADD CONSTRAINT `rezerwacje_ibfk_3` FOREIGN KEY (`id_uslugi`) REFERENCES `uslugi` (`id_uslugi`);
+
+--
+-- Constraints for table `urlopy`
+--
+ALTER TABLE `urlopy`
+  ADD CONSTRAINT `fk_urlopy_pracownik` FOREIGN KEY (`id_pracownika`) REFERENCES `pracownicy` (`id_pracownika`);
 
 --
 -- Constraints for table `uslugi`
