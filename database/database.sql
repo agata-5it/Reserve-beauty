@@ -2,10 +2,10 @@
 -- version 5.2.1
 -- https://www.phpmyadmin.net/
 --
--- Host: localhost
--- Generation Time: Wrz 19, 2026 at 08:44 PM
--- Wersja serwera: 10.4.28-MariaDB
--- Wersja PHP: 8.2.4
+-- Host: 127.0.0.1
+-- Generation Time: Wrz 21, 2026 at 09:16 AM
+-- Wersja serwera: 10.4.32-MariaDB
+-- Wersja PHP: 8.2.12
 
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;
@@ -18,7 +18,7 @@ SET time_zone = "+00:00";
 /*!40101 SET NAMES utf8mb4 */;
 
 --
--- Database: `Reserve-beauty`
+-- Database: `database`
 --
 
 -- --------------------------------------------------------
@@ -158,6 +158,62 @@ INSERT INTO `rezerwacje` (`nr_rezerwacji`, `id_uzytkownika`, `id_pracownika`, `i
 -- Wyzwalacze `rezerwacje`
 --
 DELIMITER $$
+CREATE TRIGGER `rezerwacje_urlop_przed_dodaniem` BEFORE INSERT ON `rezerwacje` FOR EACH ROW BEGIN
+    IF NEW.data_zakonczenia <= NEW.data_rozpoczecia THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT =
+            'Koniec wizyty musi byc pozniejszy od jej poczatku.';
+    END IF;
+
+    IF NEW.status IN ('oczekujaca', 'potwierdzona') THEN
+
+        IF EXISTS (
+            SELECT 1
+            FROM urlopy AS u
+            WHERE u.id_pracownika = NEW.id_pracownika
+              AND u.status = 'zaplanowany'
+              AND NEW.data_rozpoczecia <
+                  DATE_ADD(u.data_do, INTERVAL 1 DAY)
+              AND NEW.data_zakonczenia > u.data_od
+        ) THEN
+            SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT =
+                'Nie mozna dodac wizyty: pracownik ma wtedy urlop.';
+        END IF;
+
+    END IF;
+END
+$$
+DELIMITER ;
+DELIMITER $$
+CREATE TRIGGER `rezerwacje_urlop_przed_edycja` BEFORE UPDATE ON `rezerwacje` FOR EACH ROW BEGIN
+    IF NEW.data_zakonczenia <= NEW.data_rozpoczecia THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT =
+            'Koniec wizyty musi byc pozniejszy od jej poczatku.';
+    END IF;
+
+    IF NEW.status IN ('oczekujaca', 'potwierdzona') THEN
+
+        IF EXISTS (
+            SELECT 1
+            FROM urlopy AS u
+            WHERE u.id_pracownika = NEW.id_pracownika
+              AND u.status = 'zaplanowany'
+              AND NEW.data_rozpoczecia <
+                  DATE_ADD(u.data_do, INTERVAL 1 DAY)
+              AND NEW.data_zakonczenia > u.data_od
+        ) THEN
+            SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT =
+                'Nie mozna zmienic wizyty: pracownik ma wtedy urlop.';
+        END IF;
+
+    END IF;
+END
+$$
+DELIMITER ;
+DELIMITER $$
 CREATE TRIGGER `sprawdz_nakladanie` BEFORE INSERT ON `rezerwacje` FOR EACH ROW BEGIN
     IF EXISTS (
         SELECT 1 FROM rezerwacje 
@@ -227,7 +283,7 @@ CREATE TABLE `urlopy` (
   `data_do` date NOT NULL,
   `status` enum('zaplanowany','anulowany') NOT NULL DEFAULT 'zaplanowany',
   `utworzono_dnia` datetime NOT NULL DEFAULT current_timestamp()
-) ;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Dumping data for table `urlopy`
@@ -241,7 +297,103 @@ INSERT INTO `urlopy` (`id_urlopu`, `id_pracownika`, `data_od`, `data_do`, `statu
 (5, 1, '2026-09-07', '2026-09-08', 'anulowany', '2026-09-19 20:41:51'),
 (6, 1, '2026-09-07', '2026-09-10', 'zaplanowany', '2026-09-19 20:42:11'),
 (8, 2, '2026-09-21', '2026-09-22', 'zaplanowany', '2026-09-19 20:43:26'),
-(9, 5, '2026-09-21', '2026-09-22', 'zaplanowany', '2026-09-19 20:43:35');
+(9, 5, '2026-09-21', '2026-09-22', 'zaplanowany', '2026-09-19 20:43:35'),
+(11, 1, '2026-11-13', '2026-11-19', 'zaplanowany', '2026-09-21 09:13:46');
+
+--
+-- Wyzwalacze `urlopy`
+--
+DELIMITER $$
+CREATE TRIGGER `urlopy_przed_dodaniem` BEFORE INSERT ON `urlopy` FOR EACH ROW BEGIN
+    IF NEW.data_do < NEW.data_od THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT =
+            'Koniec urlopu nie moze byc przed jego poczatkiem.';
+    END IF;
+
+    IF NEW.status = 'zaplanowany' THEN
+
+        IF EXISTS (
+            SELECT 1
+            FROM urlopy AS u
+            JOIN pracownicy AS p
+                ON p.id_pracownika = u.id_pracownika
+            JOIN pracownicy AS wybrany
+                ON wybrany.id_pracownika = NEW.id_pracownika
+            WHERE p.id_salonu = wybrany.id_salonu
+              AND u.status = 'zaplanowany'
+              AND u.data_od <= NEW.data_do
+              AND u.data_do >= NEW.data_od
+        ) THEN
+            SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT =
+                'W tym salonie jest juz zaplanowany urlop w podanym okresie.';
+        END IF;
+
+        IF EXISTS (
+            SELECT 1
+            FROM rezerwacje AS r
+            WHERE r.id_pracownika = NEW.id_pracownika
+              AND r.status IN ('oczekujaca', 'potwierdzona')
+              AND r.data_rozpoczecia <
+                  DATE_ADD(NEW.data_do, INTERVAL 1 DAY)
+              AND r.data_zakonczenia > NEW.data_od
+        ) THEN
+            SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT =
+                'Pracownik ma w tym okresie zaplanowane wizyty.';
+        END IF;
+
+    END IF;
+END
+$$
+DELIMITER ;
+DELIMITER $$
+CREATE TRIGGER `urlopy_przed_edycja` BEFORE UPDATE ON `urlopy` FOR EACH ROW BEGIN
+    IF NEW.data_do < NEW.data_od THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT =
+            'Koniec urlopu nie moze byc przed jego poczatkiem.';
+    END IF;
+
+    IF NEW.status = 'zaplanowany' THEN
+
+        IF EXISTS (
+            SELECT 1
+            FROM urlopy AS u
+            JOIN pracownicy AS p
+                ON p.id_pracownika = u.id_pracownika
+            JOIN pracownicy AS wybrany
+                ON wybrany.id_pracownika = NEW.id_pracownika
+            WHERE p.id_salonu = wybrany.id_salonu
+              AND u.id_urlopu <> OLD.id_urlopu
+              AND u.status = 'zaplanowany'
+              AND u.data_od <= NEW.data_do
+              AND u.data_do >= NEW.data_od
+        ) THEN
+            SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT =
+                'Zmieniony urlop koliduje z innym urlopem w tym salonie.';
+        END IF;
+
+        IF EXISTS (
+            SELECT 1
+            FROM rezerwacje AS r
+            WHERE r.id_pracownika = NEW.id_pracownika
+              AND r.status IN ('oczekujaca', 'potwierdzona')
+              AND r.data_rozpoczecia <
+                  DATE_ADD(NEW.data_do, INTERVAL 1 DAY)
+              AND r.data_zakonczenia > NEW.data_od
+        ) THEN
+            SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT =
+                'Pracownik ma w tym okresie zaplanowane wizyty.';
+        END IF;
+
+    END IF;
+END
+$$
+DELIMITER ;
 
 -- --------------------------------------------------------
 
@@ -412,7 +564,7 @@ ALTER TABLE `salony`
 -- AUTO_INCREMENT for table `urlopy`
 --
 ALTER TABLE `urlopy`
-  MODIFY `id_urlopu` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id_urlopu` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=12;
 
 --
 -- AUTO_INCREMENT for table `uslugi`
