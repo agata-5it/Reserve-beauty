@@ -264,6 +264,8 @@ if (
 
             <button type="submit">Załóż konto</button>
         </form>
+
+    <p> Masz już konto? <a href="logowanie.php">Zaloguj się</a></p>
     </main>
 </body>
 </html>
