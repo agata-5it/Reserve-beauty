@@ -7,6 +7,14 @@ require_once __DIR__ . '/includes/auth.php';
 $blad = '';
 $email = '';
 
+$komunikat = '';
+
+if (!empty($_SESSION['haslo_zmienione'])) {
+    $komunikat = 'Hasło zostało zmienione. Zaloguj się nowym hasłem.';
+
+    unset($_SESSION['haslo_zmienione']);
+}
+
 // Zalogowana osoba od razu trafia do swojego panelu.
 $uzytkownik = zalogowanyUzytkownik();
 
@@ -90,6 +98,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <body>
     <main>
         <h1>Zaloguj się do Reserve Beauty</h1>
+
+        <?php if ($komunikat !== ''): ?>
+            <p role="status"><?= e($komunikat) ?></p>
+        <?php endif; ?>
 
         <?php if ($blad !== ''): ?>
             <p role="alert"><?= e($blad) ?></p>
