@@ -87,7 +87,7 @@ function zalogowanyUzytkownik(): ?array
 
     try {
         $zapytanie = $pdo->prepare(
-            'SELECT id_uzytkownika, imie, nazwisko, email, rola, aktywny
+            'SELECT id_uzytkownika, imie, nazwisko, email, telefon, rola, aktywny
              FROM uzytkownicy
              WHERE id_uzytkownika = :id
              LIMIT 1'

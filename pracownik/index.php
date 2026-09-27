@@ -26,6 +26,10 @@ $uzytkownik = wymagajRoli('pracownik');
             <?= e($uzytkownik['email']) ?>
         </p>
 
+        <p>
+            <a href="<?= e(BASE_URL) ?>/profil.php">Mój profil</a>
+        </p>
+        
         <form
             action="<?= e(BASE_URL) ?>/wylogowanie.php"
             method="post"
