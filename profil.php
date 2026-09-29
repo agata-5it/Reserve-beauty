@@ -221,6 +221,12 @@ if (
         </form>
 
         <p>
+            <a href="<?= e(BASE_URL) ?>/zmiana-hasla.php">
+                Zmień hasło
+            </a>
+        </p>
+
+        <p>
             <a href="<?= e(BASE_URL . adresPanelu($uzytkownik['rola'])) ?>">
                 Wróć do panelu
             </a>
