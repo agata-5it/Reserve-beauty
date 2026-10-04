@@ -18,10 +18,10 @@ Aplikacja dedykowana jest branży beauty. Rozwiązuje problem ręcznego umawiani
 
 ## Aktualny Stan Projektu
 
-**Bieżący etap:** **Etap 1: Projekt, GitHub i baza danych (database.sql, ERD)** (Termin: 25.09.2026 r.)
+**Bieżący etap:** **Etap 2: Użytkownicy, rejestracja, logowanie** (Termin: 16.10.2026 r.)
 
 ### Postęp prac według punktów kontrolnych:
-- [ ] **Etap 1 (25.09.2026):** Projekt, GitHub i baza danych (database.sql, ERD)
+- [-] **Etap 1 (25.09.2026):** Projekt, GitHub i baza danych (database.sql, ERD)
 - [ ] **Etap 2 (16.10.2026):** Użytkownicy, rejestracja, logowanie
 - [ ] **Etap 3 (06.11.2026):** Panel administracyjny
 - [ ] **Etap 4 (20.11.2026):** Klient i rezerwacje (logika konfliktów, panele)
@@ -39,4 +39,5 @@ Aplikacja dedykowana jest branży beauty. Rozwiązuje problem ręcznego umawiani
 ## Instrukcja Uruchomienia Projektu
 1. **Sklonuj repozytorium GitHub do /htdocs:**
 2. **Uruchomienie Apache w XAMPP**
-3. **Otwarcie http://localhost/reserve-beauty/**
+3. **Utworzenie bazy reserve-beauty oraz import danych**
+4. **Otwarcie http://localhost/reserve-beauty/**
