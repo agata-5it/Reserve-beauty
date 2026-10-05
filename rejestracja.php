@@ -162,11 +162,13 @@ if (
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Rejestracja — Reserve Beauty</title>
+    <link rel="stylesheet" href="css/konto.css">
 </head>
 
-<body>
+<body class="strona-konta">
     <main>
-        <h1>Załóż konto w Reserve Beauty</h1>
+        <p class="marka">RESERVE BEAUTY</p>
+        <h1>Załóż konto</h1>
         <p>Utwórz konto klienta, aby korzystać z rezerwacji.</p>
 
         <?php if ($komunikat !== ''): ?>

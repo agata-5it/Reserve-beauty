@@ -1,0 +1,178 @@
+/* Podstawowe ustawienia */
+
+* {
+    box-sizing: border-box;
+}
+
+body.strona-konta {
+    margin: 0;
+    min-height: 100vh;
+    padding: 40px 16px;
+    background: #faf5f3;
+    color: #332b30;
+    font-family: Arial, sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+}
+
+/* Główna karta strony */
+
+.strona-konta main {
+    width: 100%;
+    max-width: 540px;
+    margin: 0 auto;
+    padding: 36px;
+    background: #ffffff;
+    border: 1px solid #e8dcdF;
+    border-radius: 20px;
+    box-shadow: 0 12px 35px rgba(70, 40, 50, 0.07);
+}
+
+.strona-konta .marka {
+    margin: 0 0 24px;
+    color: #873b57;
+    font-size: 18px;
+    font-weight: bold;
+    letter-spacing: 1px;
+}
+
+.strona-konta h1 {
+    margin: 0 0 12px;
+    font-size: 28px;
+    line-height: 1.25;
+}
+
+.strona-konta p {
+    margin: 0 0 18px;
+    overflow-wrap: anywhere;
+}
+
+/* Formularze */
+
+.strona-konta form {
+    margin-top: 24px;
+}
+
+.strona-konta form p {
+    margin-bottom: 18px;
+}
+
+.strona-konta label {
+    display: inline-block;
+    margin-bottom: 6px;
+    font-weight: bold;
+}
+
+.strona-konta input:not([type="hidden"]) {
+    display: block;
+    width: 100%;
+    min-height: 48px;
+    padding: 12px 14px;
+    border: 1px solid #99858e;
+    border-radius: 10px;
+    background: #ffffff;
+    color: #332b30;
+    font: inherit;
+}
+
+.strona-konta input:focus-visible {
+    outline: 3px solid #873b57;
+    outline-offset: 2px;
+    border-color: #873b57;
+}
+
+/* Przyciski */
+
+.strona-konta button {
+    width: 100%;
+    min-height: 48px;
+    padding: 12px 18px;
+    border: 0;
+    border-radius: 10px;
+    background: #873b57;
+    color: #ffffff;
+    font: inherit;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.strona-konta button:hover {
+    background: #6d2c44;
+}
+
+.strona-konta button:focus-visible {
+    outline: 3px solid #332b30;
+    outline-offset: 3px;
+}
+
+/* Linki */
+
+.strona-konta a {
+    color: #873b57;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
+.strona-konta a:hover {
+    color: #5e263b;
+}
+
+.strona-konta a:focus-visible {
+    outline: 3px solid #873b57;
+    outline-offset: 3px;
+}
+
+.strona-konta form + p {
+    margin-top: 24px;
+}
+
+/* Komunikaty */
+
+.strona-konta [role="alert"] {
+    margin: 20px 0;
+    padding: 14px 16px;
+    border: 1px solid #c98080;
+    border-radius: 10px;
+    background: #fff1f1;
+    color: #8a2222;
+}
+
+.strona-konta [role="status"] {
+    margin: 20px 0;
+    padding: 14px 16px;
+    border: 1px solid #83a58c;
+    border-radius: 10px;
+    background: #eff8f1;
+    color: #245c34;
+}
+
+.strona-konta [role="alert"] p {
+    margin-bottom: 8px;
+}
+
+.strona-konta [role="alert"] ul {
+    margin: 0;
+    padding-left: 22px;
+}
+
+.strona-konta #zasady-hasla {
+    color: #65565e;
+    font-size: 14px;
+}
+
+/* Widok na telefonie */
+
+@media (max-width: 600px) {
+    body.strona-konta {
+        padding: 20px 12px;
+    }
+
+    .strona-konta main {
+        padding: 24px 20px;
+        border-radius: 16px;
+    }
+
+    .strona-konta h1 {
+        font-size: 24px;
+    }
+}

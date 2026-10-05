@@ -11,10 +11,12 @@ $uzytkownik = wymagajRoli('pracownik');
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Panel pracownika — Reserve Beauty</title>
+    <link rel="stylesheet" href="../css/konto.css">
 </head>
 
-<body>
+<body class="strona-konta">
     <main>
+        <p class="marka">RESERVE BEAUTY</p>
         <h1>Panel pracownika</h1>
 
         <p>

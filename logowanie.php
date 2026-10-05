@@ -93,11 +93,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Logowanie — Reserve Beauty</title>
+    <link rel="stylesheet" href="css/konto.css">
 </head>
 
-<body>
+<body class="strona-konta">
     <main>
-        <h1>Zaloguj się do Reserve Beauty</h1>
+        <p class="marka">RESERVE BEAUTY</p>
+        <h1>Zaloguj się</h1>
 
         <?php if ($komunikat !== ''): ?>
             <p role="status"><?= e($komunikat) ?></p>
