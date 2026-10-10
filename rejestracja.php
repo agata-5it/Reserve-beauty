@@ -1,6 +1,6 @@
 <?php
 
-session_start();
+require_once __DIR__ . '/includes/bootstrap.php';
 
 $komunikat = '';
 $bledy = [];
@@ -10,33 +10,8 @@ $nazwisko = '';
 $email = '';
 $telefon = '';
 
-// Tworzymy losowy token chroniący formularz.
-if (!isset($_SESSION['csrf_token'])) {
-    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-}
-
-// Odczytujemy tylko wartości tekstowe.
-function poleTekstowe(string $nazwa): string
-{
-    $wartosc = $_POST[$nazwa] ?? '';
-
-    return is_string($wartosc) ? $wartosc : '';
-}
-
-// Przygotowujemy tekst do bezpiecznego wyświetlenia w HTML.
-function e(string $tekst): string
-{
-    return htmlspecialchars(
-        $tekst,
-        ENT_QUOTES | ENT_SUBSTITUTE,
-        'UTF-8'
-    );
-}
-
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $token = poleTekstowe('csrf_token');
-
-    if (!hash_equals($_SESSION['csrf_token'], $token)) {
+    if (!sprawdzCsrf()) {
         $bledy[] = 'Formularz wygasł. Odśwież stronę i spróbuj ponownie.';
     }
 
@@ -90,7 +65,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Łączymy się z bazą tylko wtedy, gdy dane są poprawne.
     if (empty($bledy)) {
         try {
-            require __DIR__ . '/includes/db.php';
+            require_once __DIR__ . '/includes/db.php';
 
             // Sprawdzamy, czy adres e-mail jest już zajęty.
             $zapytanie = $pdo->prepare(
@@ -128,8 +103,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // Zapamiętujemy komunikat na czas przekierowania.
                 $_SESSION['rejestracja_sukces'] = true;
 
-                header('Location: rejestracja.php');
-                exit;
+                przekieruj('/rejestracja.php');
             }
         } catch (PDOException $e) {
             // Obsługujemy także duplikat wykryty przy samym zapisie.
@@ -173,7 +147,7 @@ if (
 
         <?php if ($komunikat !== ''): ?>
             <p role="status">
-                <?= htmlspecialchars($komunikat, ENT_QUOTES, 'UTF-8') ?>
+                <?= e($komunikat) ?>
             </p>
         <?php endif; ?>
         <?php if (!empty($bledy)): ?>
