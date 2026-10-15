@@ -22,7 +22,7 @@ Aplikacja dedykowana jest branży beauty. Rozwiązuje problem ręcznego umawiani
 
 ### Postęp prac według punktów kontrolnych:
 - [-] **Etap 1 (25.09.2026):** Projekt, GitHub i baza danych (database.sql, ERD)
-- [ ] **Etap 2 (16.10.2026):** Użytkownicy, rejestracja, logowanie
+- [-] **Etap 2 (16.10.2026):** Użytkownicy, rejestracja, logowanie
 - [ ] **Etap 3 (06.11.2026):** Panel administracyjny
 - [ ] **Etap 4 (20.11.2026):** Klient i rezerwacje (logika konfliktów, panele)
 - [ ] **Etap 5 (27.11.2026):** Gotowy projekt i prezentacja
