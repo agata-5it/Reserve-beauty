@@ -9,6 +9,8 @@
 <body>
     <main class="start">
         <p class="label">Projekt semestralny</p>
+        <button><a href="rejestracja.php" class="button">Załóż konto</a></button>
+        <button><a href="logowanie.php" class="button">Zaloguj się</a></button>
         <h1>Reserve Beauty</h1>
         <p>System rezerwacji usług beauty</p>
         <p><?php echo 'Środowisko PHP działa poprawnie.'; ?></p>
