@@ -37,7 +37,4 @@ Aplikacja dedykowana jest branży beauty. Rozwiązuje problem ręcznego umawiani
 - **Opcjonalne biblioteki / frameworki:** Bootstrap / Tailwind CSS oraz jQuery / FullCalendar
 
 ## Instrukcja Uruchomienia Projektu
-1. **Sklonuj repozytorium GitHub do /htdocs:**
-2. **Uruchomienie Apache w XAMPP**
-3. **Utworzenie bazy reserve-beauty oraz import danych**
-4. **Otwarcie http://localhost/reserve-beauty/**
+1. **Otwarcie https://reserve-beauty.xo.je**
