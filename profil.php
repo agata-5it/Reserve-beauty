@@ -2,27 +2,22 @@
 
 require_once __DIR__ . '/includes/auth.php';
 
-// Sprawdzamy, kto jest zalogowany.
 $uzytkownik = zalogowanyUzytkownik();
 
 if ($uzytkownik === null) {
     przekieruj('/logowanie.php');
 }
 
-// Identyfikator pochodzi z zalogowanego konta,
-// a nie z formularza lub adresu strony.
 $idUzytkownika = (int) $uzytkownik['id_uzytkownika'];
 
 $bledy = [];
 $komunikat = '';
 
-// Początkowo formularz pokazuje dane zapisane w bazie.
 $imie = $uzytkownik['imie'];
 $nazwisko = $uzytkownik['nazwisko'];
 $email = $uzytkownik['email'];
 $telefon = $uzytkownik['telefon'] ?? '';
 
-// Odczytujemy wyłącznie wartości tekstowe.
 function poleProfilu(string $nazwa): string
 {
     $wartosc = $_POST[$nazwa] ?? '';
@@ -35,26 +30,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $bledy[] = 'Formularz wygasł. Odśwież stronę i spróbuj ponownie.';
     }
 
-    // Odczytujemy nowe dane z formularza.
     $imie = poleProfilu('imie');
     $nazwisko = poleProfilu('nazwisko');
-    $email = poleProfilu('email');
     $telefon = poleProfilu('telefon');
 
-    // Sprawdzamy dane przed zapisem.
     if ($imie === '' || mb_strlen($imie) > 50) {
         $bledy[] = 'Imię musi mieć od 1 do 50 znaków.';
     }
 
     if ($nazwisko === '' || mb_strlen($nazwisko) > 50) {
         $bledy[] = 'Nazwisko musi mieć od 1 do 50 znaków.';
-    }
-
-    if (
-        !filter_var($email, FILTER_VALIDATE_EMAIL)
-        || mb_strlen($email) > 100
-    ) {
-        $bledy[] = 'Podaj poprawny adres e-mail, maksymalnie 100 znaków.';
     }
 
     $telefon = str_replace([' ', '-'], '', $telefon);
@@ -65,29 +50,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (empty($bledy)) {
         try {
-            // Sprawdzamy, czy e-mail należy do INNEGO konta.
+            // Sprawdzamy, czy telefon należy do INNEGO konta.
             $sprawdzenie = $pdo->prepare(
                 'SELECT id_uzytkownika
                  FROM uzytkownicy
-                 WHERE email = :email
+                 WHERE telefon = :telefon
                    AND id_uzytkownika <> :id
                  LIMIT 1'
             );
 
             $sprawdzenie->execute([
-                'email' => $email,
+                'telefon' => $telefon,
                 'id' => $idUzytkownika,
             ]);
 
             if ($sprawdzenie->fetch()) {
-                $bledy[] = 'Ten adres e-mail jest już używany przez inne konto.';
+                $bledy[] = 'Ten numer telefonu jest już przypisany do innego konta.';
             } else {
-                // Zmieniamy wyłącznie dozwolone dane własnego konta.
+                // Adres e-mail nie jest zmieniany.
                 $zapis = $pdo->prepare(
                     'UPDATE uzytkownicy
                      SET imie = :imie,
                          nazwisko = :nazwisko,
-                         email = :email,
                          telefon = :telefon
                      WHERE id_uzytkownika = :id'
                 );
@@ -95,7 +79,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $zapis->execute([
                     'imie' => $imie,
                     'nazwisko' => $nazwisko,
-                    'email' => $email,
                     'telefon' => $telefon,
                     'id' => $idUzytkownika,
                 ]);
@@ -118,7 +101,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// Jednorazowy komunikat po udanym zapisie.
 if (
     $_SERVER['REQUEST_METHOD'] === 'GET'
     && !empty($_SESSION['profil_sukces'])
@@ -196,14 +178,16 @@ if (
             <p>
                 <label for="email">Adres e-mail</label><br>
                 <input
-                    type="email"
-                    id="email"
-                    name="email"
-                    value="<?= e($email) ?>"
-                    maxlength="100"
-                    autocomplete="email"
-                    required
-                >
+                        type="email"
+                        id="email"
+                        value="<?= e($email) ?>"
+                        readonly
+                        aria-describedby="email-informacja"
+                    >   
+
+<small id="email-informacja">
+    Adres e-mail służy do logowania i nie można go zmienić w profilu.
+</small>
             </p>
 
             <p>
