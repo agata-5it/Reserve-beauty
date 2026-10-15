@@ -71,14 +71,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $zapytanie = $pdo->prepare(
                 'SELECT id_uzytkownika
                  FROM uzytkownicy
-                 WHERE email = :email
+                 WHERE email = :email or telefon = :telefon
                  LIMIT 1'
             );
 
-            $zapytanie->execute(['email' => $email]);
+            $zapytanie->execute(['email' => $email, 'telefon' => $telefon]);
 
             if ($zapytanie->fetch()) {
-                $bledy[] = 'Konto z tym adresem e-mail już istnieje.';
+                $bledy[] = 'Konto z tym adresem e-mail lub numer telefonu już istnieje.';
             } else {
                 // Tworzymy hash — do bazy nie trafia jawne hasło.
                 $hash = password_hash($haslo, PASSWORD_DEFAULT);
@@ -108,7 +108,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } catch (PDOException $e) {
             // Obsługujemy także duplikat wykryty przy samym zapisie.
             if ((int) ($e->errorInfo[1] ?? 0) === 1062) {
-                $bledy[] = 'Nie można utworzyć konta: podane dane są już zajęte.';
+                $bledy[] = 'Nie można utworzyć konta: e-mail lub numer telefonu są już zajęte.';
             } else {
                 // W logu zapisujemy kod błędu, bez danych formularza.
                 error_log('Blad rejestracji. SQLSTATE: ' . $e->getCode());
