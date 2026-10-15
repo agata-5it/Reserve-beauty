@@ -37,4 +37,4 @@ Aplikacja dedykowana jest branży beauty. Rozwiązuje problem ręcznego umawiani
 - **Opcjonalne biblioteki / frameworki:** Bootstrap / Tailwind CSS oraz jQuery / FullCalendar
 
 ## Instrukcja Uruchomienia Projektu
-1. **Otwarcie https://reserve-beauty.xo.je**
+1. **Otwarcie http://reserve-beauty.cba.pl/**

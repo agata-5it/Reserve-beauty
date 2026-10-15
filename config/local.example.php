@@ -1,8 +1,8 @@
 <?php
 
 return [
-    'host' => '127.0.0.1',
-    'database' => 'reserve-beauty',
-    'username' => 'WPISZ_UZYTKOWNIKA_BAZY',
-    'password' => 'WPISZ_HASLO_BAZY',
+    'host' => 'www.mkwk018.cba.pl',
+    'database' => 'agataa123',
+    'username' => 'roott123',
+    'password' => 'ZAQ!2wsx',
 ];git

@@ -13,7 +13,7 @@ session_set_cookie_params([
 session_start();
 
 // Adres folderu aplikacji w przeglądarce.
-const BASE_URL = '/reserve-beauty';
+const BASE_URL = '';
 
 // Bezpieczne wyświetlanie tekstu w HTML.
 function e(string $tekst): string
