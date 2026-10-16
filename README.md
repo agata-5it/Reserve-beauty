@@ -38,3 +38,9 @@ Aplikacja dedykowana jest branży beauty. Rozwiązuje problem ręcznego umawiani
 
 ## Instrukcja Uruchomienia Projektu
 1. **Otwarcie http://reserve-beauty.cba.pl/**
+2. Aby przetestować panel Administratora:
+    email: admin123@gmail.com
+    haslo: test
+3. Aby przetestować panel Pracownika:
+    email: KrystianKor@wp.pl
+    haslo: test
