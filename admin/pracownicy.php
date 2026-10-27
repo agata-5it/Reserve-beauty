@@ -385,7 +385,7 @@ $tytuly = ['przypisz' => 'Przypisz istniejące konto', 'nowy' => 'Utwórz konto 
             <?php if ($tryb === 'przypisz' && !$konta): ?>
                 <p>Nie ma wolnych kont z rolą pracownik. Wybierz „Utwórz nowe konto pracownika”.</p>
             <?php endif; ?>
-            <form class="form" action="<?= e(BASE_URL) ?>/admin/pracownicy.php#formularz" method="post">
+            <form class="formularz" action="<?= e(BASE_URL) ?>/admin/pracownicy.php#formularz" method="post">
                 <input type="hidden" name="csrf_token" value="<?= e($_SESSION['csrf_token']) ?>">
                 <input type="hidden" name="akcja" value="<?= e($tryb) ?>">
                 <input type="hidden" name="id_pracownika" value="<?= (int) $formularz['id_pracownika'] ?>">
