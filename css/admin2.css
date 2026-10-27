@@ -19,3 +19,4 @@
 .ok { background: #e7f4ea; color: #215c32; }
 .blad { background: #fce8e8; color: #8a2525; }
 .adres { overflow-wrap: anywhere; max-width: 250px; }
+.tekst { max-width: 260px; overflow-wrap: anywhere; }
