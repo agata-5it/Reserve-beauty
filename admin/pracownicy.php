@@ -440,7 +440,7 @@ $tytuly = ['przypisz' => 'Przypisz istniejące konto', 'nowy' => 'Utwórz konto 
                 <div class="akcje">
                     <button type="submit" <?= !$salony || ($tryb === 'przypisz' && !$konta) ? 'disabled' : '' ?>><?= $tryb === 'nowy' ? 'Utwórz konto i profil' : 'Zapisz' ?></button>
                     <?php if ($tryb === 'edytuj'): ?>
-                        <a class="prac-link" href="<?= e(BASE_URL) ?>/admin/pracownicy.php">Anuluj edycję</a>
+                        <a class="link" href="<?= e(BASE_URL) ?>/admin/pracownicy.php">Anuluj edycję</a>
                     <?php endif; ?>
                 </div>
             </form>
