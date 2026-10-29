@@ -289,6 +289,63 @@ $tytuly = ['przypisz' => 'Przypisz istniejące konto', 'nowy' => 'Utwórz konto 
     <title>Pracownicy — Reserve Beauty</title>
     <link rel="stylesheet" href="<?= e(BASE_URL) ?>/css/admin.css">
     <link rel="stylesheet" href="<?= e(BASE_URL) ?>/css/admin2.css">
+    <style>
+    .akcje-pracownika {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+        width: 340px;
+        max-width: 100%;
+    }
+
+    .akcje-pracownika form {
+        display: block;
+        margin: 0;
+        min-width: 0;
+    }
+
+    .akcje-pracownika > a,
+    .akcje-pracownika button {
+        box-sizing: border-box;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        min-height: 44px;
+        margin: 0;
+        padding: 10px 12px;
+        border: 1px solid #873b57;
+        border-radius: 10px;
+        background: #873b57;
+        color: white;
+        font: inherit;
+        font-size: 14px;
+        font-weight: bold;
+        line-height: 1.3;
+        text-align: center;
+        text-decoration: none;
+        cursor: pointer;
+    }
+
+    .akcje-pracownika > a {
+        background: #faf0f4;
+        color: #873b57;
+    }
+
+    .akcje-pracownika > a:hover {
+        background: #efdae3;
+    }
+
+    .akcje-pracownika button:hover {
+        background: #6d2e46;
+    }
+
+    .akcje-pracownika a:focus-visible,
+    .akcje-pracownika button:focus-visible {
+        outline: 3px solid #bc8199;
+        outline-offset: 2px;
+    }
+</style>
 </head>
 <body class="strona-konta">
     <nav class="admin-menu" aria-label="Menu administratora">
@@ -342,8 +399,9 @@ $tytuly = ['przypisz' => 'Przypisz istniejące konto', 'nowy' => 'Utwórz konto 
                                     Konto: <?= (int) $pracownik['aktywny'] === 1 ? 'aktywne' : 'zablokowane' ?>
                                 </td>
                                 <td>
-                                    <div class="akcje">
+                                    <div class="akcje akcje-pracownika">
                                         <a class="link" href="<?= e(BASE_URL) ?>/admin/pracownicy.php?edytuj=<?= (int) $pracownik['id_pracownika'] ?>#formularz">Edytuj</a>
+                                        <a class="link" href="<?= e(BASE_URL) ?>/admin/pracownik-uslugi.php?id_pracownika=<?= (int) $pracownik['id_pracownika'] ?>">Usługi pracownika</a>
                                         <form action="<?= e(BASE_URL) ?>/admin/pracownicy.php" method="post">
                                             <input type="hidden" name="csrf_token" value="<?= e($_SESSION['csrf_token']) ?>">
                                             <input type="hidden" name="akcja" value="pracownik_stan">
