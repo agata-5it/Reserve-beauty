@@ -254,10 +254,10 @@ $menu = [
             </form>
         </div>
         <?php if ($komunikat !== ''): ?>
-            <p class="uslugi-ok" role="status"><?= e($komunikat) ?></p>
+            <p class="ok" role="status"><?= e($komunikat) ?></p>
         <?php endif; ?>
         <?php if ($blad !== ''): ?>
-            <p class="uslugi-blad" role="alert"><?= e($blad) ?></p>
+            <p class="blad" role="alert"><?= e($blad) ?></p>
         <?php endif; ?>
 
         <section class="karta" aria-labelledby="tytul-formularza">
