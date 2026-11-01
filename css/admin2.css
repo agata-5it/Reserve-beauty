@@ -20,3 +20,8 @@
 .blad { background: #fce8e8; color: #8a2525; }
 .adres { overflow-wrap: anywhere; max-width: 250px; }
 .tekst { max-width: 260px; overflow-wrap: anywhere; }
+.daty { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.status { display: inline-block; border-radius: 20px; padding: 4px 12px; background: #e9f3eb; color: #275735; font-size: 14px; }
+.anulowany { background: #efedef; color: #655d64; }
+.pomoc { color: #65545c; }
+@media (max-width: 550px) { .daty { grid-template-columns: 1fr; } }
