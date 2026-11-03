@@ -25,3 +25,4 @@
 .anulowany { background: #efedef; color: #655d64; }
 .pomoc { color: #65545c; }
 @media (max-width: 550px) { .daty { grid-template-columns: 1fr; } }
+.godziny { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
