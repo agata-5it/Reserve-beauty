@@ -26,3 +26,9 @@
 .pomoc { color: #65545c; }
 @media (max-width: 550px) { .daty { grid-template-columns: 1fr; } }
 .godziny { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.sterowanie { grid-column:1/-1; display:flex; align-items:center; gap:16px; }
+.sterowanie a { color:#78334e; }
+.filtry { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr)); gap:14px; align-items:end; }
+.dzialania { display:grid; gap:6px; margin-top:8px; justify-content:stretch; }
+.dzialania button { font-size:14px; padding:7px 12px; }
+.anuluj { color:#76334c; background:#f7edf1; }
