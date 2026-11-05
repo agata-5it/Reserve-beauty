@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__ . '/../includes/auth.php';
-wymagajRoli('admin');
+$admin = wymagajRoli('admin');
 
 function rezPole(array $dane, string $klucz): string
 {
@@ -78,6 +78,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         $stmt = $pdo->prepare('UPDATE rezerwacje SET status = ? WHERE nr_rezerwacji = ?');
         $stmt->execute([$nowy, $nr]);
+        // Rezerwacja i historia muszą zapisać się razem. Nazwisko zachowujemy
+        // również w historii, aby późniejsza edycja konta nie zmieniła wpisu.
+        $stmt = $pdo->prepare('INSERT INTO historia_statusow_rezerwacji
+            (nr_rezerwacji, id_administratora, administrator, status_przed, status_po, zmieniono)
+            VALUES (?, ?, ?, ?, ?, ?)');
+        $stmt->execute([$nr, $admin['id_uzytkownika'], $admin['imie'] . ' ' . $admin['nazwisko'],
+            $wizyta['status'], $nowy, $teraz]);
         $pdo->commit();
         $_SESSION['rez_sukces'] = 'Rezerwacja nr ' . $nr . ' — nowy status: ' . $statusy[$nowy] . '.';
         przekieruj($powrot);
@@ -160,6 +167,47 @@ try {
 } catch (RuntimeException $ex) {
     $bladListy = $ex->getMessage();
 }
+// CSV korzysta z tych samych wyników co tabela, również przy pustej liście.
+if ($_SERVER['REQUEST_METHOD'] === 'GET' && rezPole($_GET, 'eksport') === 'csv' && $bladListy === '') {
+    header('Content-Type: text/csv; charset=UTF-8');
+    header('Content-Disposition: attachment; filename="rezerwacje-' . date('Y-m-d') . '.csv"');
+    header('Cache-Control: no-store');
+    $plik = fopen('php://output', 'wb');
+    fwrite($plik, "\xEF\xBB\xBF"); // Polskie znaki w Excelu.
+    fputcsv($plik, ['Nr rezerwacji', 'Klient', 'Salon', 'Pracownik', 'Usługa',
+        'Początek', 'Koniec', 'Cena (zł)', 'Status'], ';', '"', '');
+    foreach ($wiersze as $r) {
+        $pola = [$r['nr_rezerwacji'], $r['klient'], $r['salon'], $r['pracownik'],
+            $r['usluga'], $r['data_rozpoczecia'], $r['data_zakonczenia'],
+            str_replace('.', ',', $r['cena']), $statusy[$r['status']]];
+        foreach ($pola as &$pole) {
+            // Tekst wpisany przez użytkownika nie powinien stać się formułą arkusza.
+            if (preg_match('/^(?:[\t\r\n]|[\s\p{Z}]*[=+@-])/u', (string) $pole)) {
+                $pole = "'" . $pole;
+            }
+        }
+        unset($pole);
+        fputcsv($plik, $pola, ';', '"', '');
+    }
+    fclose($plik);
+    exit;
+}
+
+$nrHistorii = filter_var(rezPole($_GET, 'historia'), FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+$historia = [];
+$bladHistorii = '';
+if ($nrHistorii) {
+    try {
+        $stmt = $pdo->prepare('SELECT administrator, zmieniono, status_przed, status_po
+            FROM historia_statusow_rezerwacji WHERE nr_rezerwacji = ? ORDER BY id_zmiany DESC');
+        $stmt->execute([$nrHistorii]);
+        $historia = $stmt->fetchAll();
+    } catch (PDOException $ex) {
+        $bladHistorii = 'Nie można pobrać historii. Sprawdź, czy zaimportowano tabelę historii.';
+        error_log('Historia: SQLSTATE ' . $ex->getCode());
+    }
+}
+$kolejnyParametr = $parametry === '' ? '?' : '&';
 $teraz = (new DateTimeImmutable('now', $strefa))->format('Y-m-d H:i:s');
 ?>
 <!DOCTYPE html>
@@ -171,10 +219,16 @@ $teraz = (new DateTimeImmutable('now', $strefa))->format('Y-m-d H:i:s');
     <link rel="stylesheet" href="<?= e(BASE_URL) ?>/css/admin.css">
     <link rel="stylesheet" href="<?= e(BASE_URL) ?>/css/admin2.css">
     <style>
+        #rezerwacje .filtry { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr)); gap:14px; align-items:end; }
         #rezerwacje label { display:grid; gap:6px; font-weight:bold; }
         #rezerwacje select, #rezerwacje input[type=date] { box-sizing:border-box; width:100%; padding:10px; font:inherit; border:1px solid #d9c5ce; border-radius:8px; background:white; }
+        #rezerwacje .sterowanie { grid-column:1/-1; display:flex; align-items:center; gap:16px; }
+        #rezerwacje .sterowanie a { color:#78334e; }
         #rezerwacje td { vertical-align:top; }
         #rezerwacje small, #rezerwacje time { display:block; }
+        #rezerwacje .dzialania { display:grid; gap:6px; margin-top:8px; justify-content:stretch; }
+        #rezerwacje .dzialania button { font-size:14px; padding:7px 12px; }
+        #rezerwacje .anuluj { color:#76334c; background:#f7edf1; }
     </style>
 </head>
 <body class="strona-konta">
@@ -218,6 +272,9 @@ $teraz = (new DateTimeImmutable('now', $strefa))->format('Y-m-d H:i:s');
     </section>
     <section class="karta">
         <h2>Lista rezerwacji</h2>
+        <?php if ($bladListy === ''): ?>
+            <p><a class="link" href="<?= e(BASE_URL . $powrot . $kolejnyParametr . 'eksport=csv') ?>">Pobierz wyniki do CSV</a></p>
+        <?php endif; ?>
         <?php if ($bladListy): ?>
             <p class="blad" role="alert"><?= e($bladListy) ?></p>
         <?php elseif (!$wiersze): ?>
@@ -239,6 +296,7 @@ $teraz = (new DateTimeImmutable('now', $strefa))->format('Y-m-d H:i:s');
                             </td>
                             <td>
                                 <strong><?= e($statusy[$r['status']] ?? $r['status']) ?></strong>
+                                <small><a href="<?= e(BASE_URL . $powrot . $kolejnyParametr . 'historia=' . (int) $r['nr_rezerwacji'] . '#historia') ?>">Historia zmian</a></small>
                                 <?php $akcje = rezDzialania($r['status'], $r['data_zakonczenia'], $teraz); ?>
                                 <?php if ($akcje): ?>
                                     <form class="dzialania" method="post" action="<?= e(BASE_URL . $powrot) ?>">
@@ -258,6 +316,32 @@ $teraz = (new DateTimeImmutable('now', $strefa))->format('Y-m-d H:i:s');
             </div>
         <?php endif; ?>
     </section>
+    <?php if ($nrHistorii): ?>
+        <section class="karta" id="historia">
+            <h2>Historia rezerwacji nr <?= (int) $nrHistorii ?></h2>
+            <?php if ($bladHistorii): ?>
+                <p class="blad" role="alert"><?= e($bladHistorii) ?></p>
+            <?php elseif (!$historia): ?>
+                <p>Brak zapisanych zmian statusu tej rezerwacji.</p>
+            <?php else: ?>
+                <div class="tabela">
+                    <table>
+                        <thead><tr><th>Kiedy (czas polski)</th><th>Kto</th><th>Poprzedni status</th><th>Nowy status</th></tr></thead>
+                        <tbody>
+                            <?php foreach ($historia as $wpis): ?>
+                                <tr>
+                                    <td><?= e($wpis['zmieniono']) ?></td>
+                                    <td><?= e($wpis['administrator']) ?></td>
+                                    <td><?= e($statusy[$wpis['status_przed']]) ?></td>
+                                    <td><?= e($statusy[$wpis['status_po']]) ?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            <?php endif; ?>
+        </section>
+    <?php endif; ?>
 </main>
 </body>
 </html>
