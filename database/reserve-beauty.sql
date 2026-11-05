@@ -1,13 +1,14 @@
 -- phpMyAdmin SQL Dump
--- version 5.2.1
+-- version 4.9.11
 -- https://www.phpmyadmin.net/
 --
--- Host: 127.0.0.1
--- Generation Time: Wrz 21, 2026 at 09:16 AM
--- Wersja serwera: 10.4.32-MariaDB
--- Wersja PHP: 8.2.12
+-- Host: 127.0.0.1:3306
+-- Czas generowania: 05 Lis 2026, 16:47
+-- Wersja serwera: 10.11.19-MariaDB-0+deb12u1.1
+-- Wersja PHP: 7.4.33
 
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
+SET AUTOCOMMIT = 0;
 START TRANSACTION;
 SET time_zone = "+00:00";
 
@@ -18,11 +19,12 @@ SET time_zone = "+00:00";
 /*!40101 SET NAMES utf8mb4 */;
 
 --
--- Database: `reserve-beauty`
+-- Baza danych: `reserve-beauty`
 --
 
 -- --------------------------------------------------------
 
+--
 -- Struktura tabeli dla tabeli `dostepnosc_pracownikow`
 --
 
@@ -32,10 +34,10 @@ CREATE TABLE `dostepnosc_pracownikow` (
   `dzien_tygodnia` int(11) NOT NULL,
   `czas_rozpoczecia` time NOT NULL,
   `czas_zakonczenia` time NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
--- Dumping data for table `dostepnosc_pracownikow`
+-- Zrzut danych tabeli `dostepnosc_pracownikow`
 --
 
 INSERT INTO `dostepnosc_pracownikow` (`id`, `id_pracownika`, `dzien_tygodnia`, `czas_rozpoczecia`, `czas_zakonczenia`) VALUES
@@ -46,7 +48,24 @@ INSERT INTO `dostepnosc_pracownikow` (`id`, `id_pracownika`, `dzien_tygodnia`, `
 (5, 4, 2, '12:00:00', '20:00:00'),
 (6, 5, 6, '10:00:00', '18:00:00'),
 (7, 6, 4, '07:00:00', '15:00:00'),
-(8, 5, 7, '11:00:00', '19:00:00');
+(8, 5, 7, '11:00:00', '19:00:00'),
+(9, 3, 1, '08:00:00', '16:00:00');
+
+-- --------------------------------------------------------
+
+--
+-- Struktura tabeli dla tabeli `historia_statusow_rezerwacji`
+--
+
+CREATE TABLE `historia_statusow_rezerwacji` (
+  `id_zmiany` int(10) UNSIGNED NOT NULL,
+  `nr_rezerwacji` int(11) NOT NULL,
+  `id_administratora` int(11) NOT NULL,
+  `administrator` varchar(201) NOT NULL,
+  `status_przed` enum('oczekujaca','potwierdzona','zrealizowana','anulowana') NOT NULL,
+  `status_po` enum('oczekujaca','potwierdzona','zrealizowana','anulowana') NOT NULL,
+  `zmieniono` datetime NOT NULL
+) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
 
@@ -59,10 +78,10 @@ CREATE TABLE `kategorie_uslug` (
   `nazwa` varchar(150) NOT NULL,
   `opis` text DEFAULT NULL,
   `aktywny` tinyint(1) NOT NULL DEFAULT 1
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
--- Dumping data for table `kategorie_uslug`
+-- Zrzut danych tabeli `kategorie_uslug`
 --
 
 INSERT INTO `kategorie_uslug` (`id`, `nazwa`, `opis`, `aktywny`) VALUES
@@ -83,10 +102,10 @@ CREATE TABLE `pracownicy` (
   `id_salonu` int(11) NOT NULL,
   `opis` text DEFAULT NULL,
   `aktywnosc` tinyint(1) NOT NULL DEFAULT 1
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
--- Dumping data for table `pracownicy`
+-- Zrzut danych tabeli `pracownicy`
 --
 
 INSERT INTO `pracownicy` (`id_pracownika`, `id_uzytkownika`, `id_salonu`, `opis`, `aktywnosc`) VALUES
@@ -106,10 +125,10 @@ INSERT INTO `pracownicy` (`id_pracownika`, `id_uzytkownika`, `id_salonu`, `opis`
 CREATE TABLE `pracownicy_uslugi` (
   `id_pracownika` int(11) NOT NULL,
   `id_uslugi` int(11) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
--- Dumping data for table `pracownicy_uslugi`
+-- Zrzut danych tabeli `pracownicy_uslugi`
 --
 
 INSERT INTO `pracownicy_uslugi` (`id_pracownika`, `id_uslugi`) VALUES
@@ -139,110 +158,19 @@ CREATE TABLE `rezerwacje` (
   `status` enum('oczekujaca','potwierdzona','zrealizowana','anulowana') NOT NULL DEFAULT 'oczekujaca',
   `uwagi` text DEFAULT NULL,
   `utworzono_dnia` datetime NOT NULL DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
--- Dumping data for table `rezerwacje`
+-- Zrzut danych tabeli `rezerwacje`
 --
 
 INSERT INTO `rezerwacje` (`nr_rezerwacji`, `id_uzytkownika`, `id_pracownika`, `id_uslugi`, `data_rozpoczecia`, `data_zakonczenia`, `cena`, `status`, `uwagi`, `utworzono_dnia`) VALUES
-(1, 3, 1, 2, '2026-09-07 12:00:00', '2026-09-07 12:30:00', 90.00, 'zrealizowana', NULL, '2026-09-01 15:19:07'),
-(2, 2, 3, 1, '2026-09-30 14:00:00', '2026-09-30 15:00:00', 120.00, 'potwierdzona', NULL, '2026-09-13 13:09:46'),
-(7, 4, 4, 1, '2027-01-05 17:00:00', '2027-01-05 18:00:00', 120.00, 'oczekujaca', NULL, '2026-09-13 13:28:09'),
-(8, 2, 5, 4, '2026-09-12 13:00:00', '2026-09-12 14:40:00', 200.00, 'zrealizowana', NULL, '2026-07-05 16:10:38'),
-(9, 3, 6, 3, '2026-09-24 09:00:00', '2026-09-24 09:45:00', 90.00, 'anulowana', NULL, '2026-09-13 13:28:09'),
-(10, 4, 6, 3, '2026-09-24 07:00:00', '2026-09-24 07:45:00', 90.00, 'potwierdzona', NULL, '2026-09-10 09:24:38');
-
---
--- Wyzwalacze `rezerwacje`
---
-DELIMITER $$
-CREATE TRIGGER `rezerwacje_urlop_przed_dodaniem` BEFORE INSERT ON `rezerwacje` FOR EACH ROW BEGIN
-    IF NEW.data_zakonczenia <= NEW.data_rozpoczecia THEN
-        SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT =
-            'Koniec wizyty musi byc pozniejszy od jej poczatku.';
-    END IF;
-
-    IF NEW.status IN ('oczekujaca', 'potwierdzona') THEN
-
-        IF EXISTS (
-            SELECT 1
-            FROM urlopy AS u
-            WHERE u.id_pracownika = NEW.id_pracownika
-              AND u.status = 'zaplanowany'
-              AND NEW.data_rozpoczecia <
-                  DATE_ADD(u.data_do, INTERVAL 1 DAY)
-              AND NEW.data_zakonczenia > u.data_od
-        ) THEN
-            SIGNAL SQLSTATE '45000'
-            SET MESSAGE_TEXT =
-                'Nie mozna dodac wizyty: pracownik ma wtedy urlop.';
-        END IF;
-
-    END IF;
-END
-$$
-DELIMITER ;
-DELIMITER $$
-CREATE TRIGGER `rezerwacje_urlop_przed_edycja` BEFORE UPDATE ON `rezerwacje` FOR EACH ROW BEGIN
-    IF NEW.data_zakonczenia <= NEW.data_rozpoczecia THEN
-        SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT =
-            'Koniec wizyty musi byc pozniejszy od jej poczatku.';
-    END IF;
-
-    IF NEW.status IN ('oczekujaca', 'potwierdzona') THEN
-
-        IF EXISTS (
-            SELECT 1
-            FROM urlopy AS u
-            WHERE u.id_pracownika = NEW.id_pracownika
-              AND u.status = 'zaplanowany'
-              AND NEW.data_rozpoczecia <
-                  DATE_ADD(u.data_do, INTERVAL 1 DAY)
-              AND NEW.data_zakonczenia > u.data_od
-        ) THEN
-            SIGNAL SQLSTATE '45000'
-            SET MESSAGE_TEXT =
-                'Nie mozna zmienic wizyty: pracownik ma wtedy urlop.';
-        END IF;
-
-    END IF;
-END
-$$
-DELIMITER ;
-DELIMITER $$
-CREATE TRIGGER `sprawdz_nakladanie` BEFORE INSERT ON `rezerwacje` FOR EACH ROW BEGIN
-    IF EXISTS (
-        SELECT 1 FROM rezerwacje 
-        WHERE id_pracownika = NEW.id_pracownika 
-          AND status != 'anulowana'
-          AND NEW.data_rozpoczecia < data_zakonczenia 
-          AND NEW.data_zakonczenia > data_rozpoczecia
-    ) THEN
-        SIGNAL SQLSTATE '45000' 
-        SET MESSAGE_TEXT = 'Ten pracownik wykonuje już usługę w tym czasie!';
-    END IF;
-END
-$$
-DELIMITER ;
-DELIMITER $$
-CREATE TRIGGER `sprawdz_nakladanie_update` BEFORE UPDATE ON `rezerwacje` FOR EACH ROW BEGIN
-    IF EXISTS (
-        SELECT 1 FROM rezerwacje 
-        WHERE id_pracownika = NEW.id_pracownika 
-          AND nr_rezerwacji != NEW.nr_rezerwacji
-          AND status != 'anulowana'
-          AND NEW.data_rozpoczecia < data_zakonczenia 
-          AND NEW.data_zakonczenia > data_rozpoczecia
-    ) THEN
-        SIGNAL SQLSTATE '45000' 
-        SET MESSAGE_TEXT = 'Nie można zapisać zmian! Pracownik ma już rezerwację w tych godzinach.';
-    END IF;
-END
-$$
-DELIMITER ;
+(1, 3, 1, 2, '2026-09-07 12:00:00', '2026-09-07 12:30:00', '90.00', 'zrealizowana', NULL, '2026-09-01 15:19:07'),
+(2, 2, 3, 1, '2026-09-30 14:00:00', '2026-09-30 15:00:00', '120.00', 'potwierdzona', NULL, '2026-09-13 13:09:46'),
+(7, 4, 4, 1, '2027-01-05 17:00:00', '2027-01-05 18:00:00', '120.00', 'oczekujaca', NULL, '2026-09-13 13:28:09'),
+(8, 2, 5, 4, '2026-09-12 13:00:00', '2026-09-12 14:40:00', '200.00', 'zrealizowana', NULL, '2026-07-05 16:10:38'),
+(9, 3, 6, 3, '2026-09-24 09:00:00', '2026-09-24 09:45:00', '90.00', 'anulowana', NULL, '2026-09-13 13:28:09'),
+(10, 4, 6, 3, '2026-09-24 07:00:00', '2026-09-24 07:45:00', '90.00', 'potwierdzona', NULL, '2026-09-10 09:24:38');
 
 -- --------------------------------------------------------
 
@@ -258,16 +186,17 @@ CREATE TABLE `salony` (
   `ulica` varchar(200) NOT NULL,
   `nr_ulicy` varchar(8) NOT NULL,
   `aktywnosc` tinyint(1) NOT NULL DEFAULT 1
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
--- Dumping data for table `salony`
+-- Zrzut danych tabeli `salony`
 --
 
 INSERT INTO `salony` (`id_salonu`, `nazwa`, `opis`, `miasto`, `ulica`, `nr_ulicy`, `aktywnosc`) VALUES
 (1, 'Velvet Beauty', 'Studio makijażu', 'Warszawa', 'Przykładowa', '10', 1),
 (2, 'Bloom Studio', NULL, 'Siedlce', 'Testowa', '5', 1),
-(3, 'Luna Beauty', NULL, 'Łuków', 'Pokazowa', '8', 1);
+(3, 'Luna Beauty', NULL, 'Łuków', 'Pokazowa', '8', 1),
+(7, 'Perfect nails', 'Stylizacja paznokci', 'Siedlce', '11 Listopada', '26/8', 0);
 
 -- --------------------------------------------------------
 
@@ -282,10 +211,10 @@ CREATE TABLE `urlopy` (
   `data_do` date NOT NULL,
   `status` enum('zaplanowany','anulowany') NOT NULL DEFAULT 'zaplanowany',
   `utworzono_dnia` datetime NOT NULL DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
--- Dumping data for table `urlopy`
+-- Zrzut danych tabeli `urlopy`
 --
 
 INSERT INTO `urlopy` (`id_urlopu`, `id_pracownika`, `data_od`, `data_do`, `status`, `utworzono_dnia`) VALUES
@@ -296,103 +225,8 @@ INSERT INTO `urlopy` (`id_urlopu`, `id_pracownika`, `data_od`, `data_do`, `statu
 (5, 1, '2026-09-07', '2026-09-08', 'anulowany', '2026-09-19 20:41:51'),
 (6, 1, '2026-09-07', '2026-09-10', 'zaplanowany', '2026-09-19 20:42:11'),
 (8, 2, '2026-09-21', '2026-09-22', 'zaplanowany', '2026-09-19 20:43:26'),
-(9, 5, '2026-09-21', '2026-09-22', 'zaplanowany', '2026-09-19 20:43:35'),
+(9, 5, '2026-09-21', '2026-09-22', 'anulowany', '2026-09-19 20:43:35'),
 (11, 1, '2026-11-13', '2026-11-19', 'zaplanowany', '2026-09-21 09:13:46');
-
---
--- Wyzwalacze `urlopy`
---
-DELIMITER $$
-CREATE TRIGGER `urlopy_przed_dodaniem` BEFORE INSERT ON `urlopy` FOR EACH ROW BEGIN
-    IF NEW.data_do < NEW.data_od THEN
-        SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT =
-            'Koniec urlopu nie moze byc przed jego poczatkiem.';
-    END IF;
-
-    IF NEW.status = 'zaplanowany' THEN
-
-        IF EXISTS (
-            SELECT 1
-            FROM urlopy AS u
-            JOIN pracownicy AS p
-                ON p.id_pracownika = u.id_pracownika
-            JOIN pracownicy AS wybrany
-                ON wybrany.id_pracownika = NEW.id_pracownika
-            WHERE p.id_salonu = wybrany.id_salonu
-              AND u.status = 'zaplanowany'
-              AND u.data_od <= NEW.data_do
-              AND u.data_do >= NEW.data_od
-        ) THEN
-            SIGNAL SQLSTATE '45000'
-            SET MESSAGE_TEXT =
-                'W tym salonie jest juz zaplanowany urlop w podanym okresie.';
-        END IF;
-
-        IF EXISTS (
-            SELECT 1
-            FROM rezerwacje AS r
-            WHERE r.id_pracownika = NEW.id_pracownika
-              AND r.status IN ('oczekujaca', 'potwierdzona')
-              AND r.data_rozpoczecia <
-                  DATE_ADD(NEW.data_do, INTERVAL 1 DAY)
-              AND r.data_zakonczenia > NEW.data_od
-        ) THEN
-            SIGNAL SQLSTATE '45000'
-            SET MESSAGE_TEXT =
-                'Pracownik ma w tym okresie zaplanowane wizyty.';
-        END IF;
-
-    END IF;
-END
-$$
-DELIMITER ;
-DELIMITER $$
-CREATE TRIGGER `urlopy_przed_edycja` BEFORE UPDATE ON `urlopy` FOR EACH ROW BEGIN
-    IF NEW.data_do < NEW.data_od THEN
-        SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT =
-            'Koniec urlopu nie moze byc przed jego poczatkiem.';
-    END IF;
-
-    IF NEW.status = 'zaplanowany' THEN
-
-        IF EXISTS (
-            SELECT 1
-            FROM urlopy AS u
-            JOIN pracownicy AS p
-                ON p.id_pracownika = u.id_pracownika
-            JOIN pracownicy AS wybrany
-                ON wybrany.id_pracownika = NEW.id_pracownika
-            WHERE p.id_salonu = wybrany.id_salonu
-              AND u.id_urlopu <> OLD.id_urlopu
-              AND u.status = 'zaplanowany'
-              AND u.data_od <= NEW.data_do
-              AND u.data_do >= NEW.data_od
-        ) THEN
-            SIGNAL SQLSTATE '45000'
-            SET MESSAGE_TEXT =
-                'Zmieniony urlop koliduje z innym urlopem w tym salonie.';
-        END IF;
-
-        IF EXISTS (
-            SELECT 1
-            FROM rezerwacje AS r
-            WHERE r.id_pracownika = NEW.id_pracownika
-              AND r.status IN ('oczekujaca', 'potwierdzona')
-              AND r.data_rozpoczecia <
-                  DATE_ADD(NEW.data_do, INTERVAL 1 DAY)
-              AND r.data_zakonczenia > NEW.data_od
-        ) THEN
-            SIGNAL SQLSTATE '45000'
-            SET MESSAGE_TEXT =
-                'Pracownik ma w tym okresie zaplanowane wizyty.';
-        END IF;
-
-    END IF;
-END
-$$
-DELIMITER ;
 
 -- --------------------------------------------------------
 
@@ -409,17 +243,17 @@ CREATE TABLE `uslugi` (
   `czas_trwania` int(11) NOT NULL,
   `cena` decimal(10,2) NOT NULL,
   `aktywnosc` tinyint(1) NOT NULL DEFAULT 1
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
--- Dumping data for table `uslugi`
+-- Zrzut danych tabeli `uslugi`
 --
 
 INSERT INTO `uslugi` (`id_uslugi`, `id_salonu`, `id_kategoria`, `nazwa`, `opis`, `czas_trwania`, `cena`, `aktywnosc`) VALUES
-(1, 3, 1, 'Manicure hybrydowy', NULL, 60, 120.00, 1),
-(2, 2, 2, 'Stylizacja brwi', NULL, 30, 90.00, 1),
-(3, 3, 3, 'Zabieg nawilżający', NULL, 45, 90.00, 1),
-(4, 1, 4, 'Makijaż wieczorowy', NULL, 100, 200.00, 1);
+(1, 3, 1, 'Manicure hybrydowy', NULL, 60, '120.00', 1),
+(2, 2, 2, 'Stylizacja brwi', NULL, 30, '90.00', 1),
+(3, 3, 3, 'Zabieg nawilżający', NULL, 45, '90.00', 1),
+(4, 1, 4, 'Makijaż wieczorowy', NULL, 100, '200.00', 1);
 
 -- --------------------------------------------------------
 
@@ -437,10 +271,10 @@ CREATE TABLE `uzytkownicy` (
   `rola` enum('klient','pracownik','admin') NOT NULL DEFAULT 'klient',
   `aktywny` tinyint(1) NOT NULL DEFAULT 1,
   `utworzono_dnia` datetime NOT NULL DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
--- Dumping data for table `uzytkownicy`
+-- Zrzut danych tabeli `uzytkownicy`
 --
 
 INSERT INTO `uzytkownicy` (`id_uzytkownika`, `imie`, `nazwisko`, `email`, `haslo`, `telefon`, `rola`, `aktywny`, `utworzono_dnia`) VALUES
@@ -453,7 +287,11 @@ INSERT INTO `uzytkownicy` (`id_uzytkownika`, `imie`, `nazwisko`, `email`, `haslo
 (7, 'Krystian', 'Kortans', 'KrystianKor@wp.pl', '$2y$10$uE1eaISYiBM.GtljIu3z7eV2nD/6ZYWaIZlto1qMdlicsm4MCGBw2', '745646547', 'pracownik', 1, '2024-10-13 17:45:01'),
 (8, 'Weronika', 'Warecka', 'Warecka2000outlook.com', '$2y$10$uE1eaISYiBM.GtljIu3z7eV2nD/6ZYWaIZlto1qMdlicsm4MCGBw2', '545474897', 'pracownik', 1, '2026-01-17 21:08:12'),
 (9, 'Amelia', 'Makiewicz', 'Makiewicz_Amelia@outlook.com', '$2y$10$uE1eaISYiBM.GtljIu3z7eV2nD/6ZYWaIZlto1qMdlicsm4MCGBw2', '428973568', 'pracownik', 1, '2023-11-01 09:49:37'),
-(10, 'Alex', 'Kostewicz', 'Kostewicz67@gmail.com', '$2y$10$uE1eaISYiBM.GtljIu3z7eV2nD/6ZYWaIZlto1qMdlicsm4MCGBw2', '143579864', 'pracownik', 1, '2025-12-10 23:29:50');
+(10, 'Alex', 'Kostewicz', 'Kostewicz67@gmail.com', '$2y$10$uE1eaISYiBM.GtljIu3z7eV2nD/6ZYWaIZlto1qMdlicsm4MCGBw2', '143579864', 'pracownik', 1, '2025-12-10 23:29:50'),
+(11, 'Michał', 'Kordek', 'makison@mak.apple', '$2y$10$6UH1s692C6XT3N9MZZ5TfOCW9/SI2eS5gnEnKAeaBxzyNu/YaSmwm', '609609609', 'klient', 1, '2026-10-15 21:53:35'),
+(12, 'Ania', 'Łopaciuk', 'ania@lekarz.pl', '$2y$10$aO2ps3CUYInkQjgBhBeowuGWZaogtiYFou7XNiynnlk66VVNxHjC2', '112112112', 'klient', 1, '2026-10-15 22:11:10'),
+(13, 'agata', 'g', 'aga@gmail.com', '$2y$10$TNnG65WAJj/fPM6Dn76xLuSiwaU/l4UcRA4HERz3F9wCkXSGm0Wa.', '636827049', 'klient', 1, '2026-10-16 10:34:18'),
+(14, 'aaa', 'aaabbb', 'aaa@aaa.pl', '$2y$10$FySsTXQ6KeBGYrILNGZ4juVHebYdJVihoMhzGuKKFXvGLHtJKM0Yq', '123123123', 'klient', 1, '2026-10-17 15:27:51');
 
 --
 -- Indeksy dla zrzutów tabel
@@ -465,6 +303,14 @@ INSERT INTO `uzytkownicy` (`id_uzytkownika`, `imie`, `nazwisko`, `email`, `haslo
 ALTER TABLE `dostepnosc_pracownikow`
   ADD PRIMARY KEY (`id`),
   ADD KEY `id_pracownika` (`id_pracownika`);
+
+--
+-- Indeksy dla tabeli `historia_statusow_rezerwacji`
+--
+ALTER TABLE `historia_statusow_rezerwacji`
+  ADD PRIMARY KEY (`id_zmiany`),
+  ADD KEY `idx_historia_wizyty` (`nr_rezerwacji`,`id_zmiany`),
+  ADD KEY `id_administratora` (`id_administratora`);
 
 --
 -- Indeksy dla tabeli `kategorie_uslug`
@@ -526,101 +372,62 @@ ALTER TABLE `uzytkownicy`
   ADD UNIQUE KEY `email` (`email`);
 
 --
--- AUTO_INCREMENT for dumped tables
+-- AUTO_INCREMENT dla zrzuconych tabel
 --
 
 --
--- AUTO_INCREMENT for table `dostepnosc_pracownikow`
+-- AUTO_INCREMENT dla tabeli `dostepnosc_pracownikow`
 --
 ALTER TABLE `dostepnosc_pracownikow`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
 
 --
--- AUTO_INCREMENT for table `kategorie_uslug`
+-- AUTO_INCREMENT dla tabeli `historia_statusow_rezerwacji`
+--
+ALTER TABLE `historia_statusow_rezerwacji`
+  MODIFY `id_zmiany` int(10) UNSIGNED NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT dla tabeli `kategorie_uslug`
 --
 ALTER TABLE `kategorie_uslug`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
 --
--- AUTO_INCREMENT for table `pracownicy`
+-- AUTO_INCREMENT dla tabeli `pracownicy`
 --
 ALTER TABLE `pracownicy`
   MODIFY `id_pracownika` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
 
 --
--- AUTO_INCREMENT for table `rezerwacje`
+-- AUTO_INCREMENT dla tabeli `rezerwacje`
 --
 ALTER TABLE `rezerwacje`
   MODIFY `nr_rezerwacji` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
 
 --
--- AUTO_INCREMENT for table `salony`
+-- AUTO_INCREMENT dla tabeli `salony`
 --
 ALTER TABLE `salony`
-  MODIFY `id_salonu` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
+  MODIFY `id_salonu` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
 
 --
--- AUTO_INCREMENT for table `urlopy`
+-- AUTO_INCREMENT dla tabeli `urlopy`
 --
 ALTER TABLE `urlopy`
   MODIFY `id_urlopu` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=12;
 
 --
--- AUTO_INCREMENT for table `uslugi`
+-- AUTO_INCREMENT dla tabeli `uslugi`
 --
 ALTER TABLE `uslugi`
   MODIFY `id_uslugi` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
 --
--- AUTO_INCREMENT for table `uzytkownicy`
+-- AUTO_INCREMENT dla tabeli `uzytkownicy`
 --
 ALTER TABLE `uzytkownicy`
-  MODIFY `id_uzytkownika` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
-
---
--- Constraints for dumped tables
---
-
---
--- Constraints for table `dostepnosc_pracownikow`
---
-ALTER TABLE `dostepnosc_pracownikow`
-  ADD CONSTRAINT `dostepnosc_pracownikow_ibfk_1` FOREIGN KEY (`id_pracownika`) REFERENCES `pracownicy` (`id_pracownika`) ON DELETE CASCADE;
-
---
--- Constraints for table `pracownicy`
---
-ALTER TABLE `pracownicy`
-  ADD CONSTRAINT `pracownicy_ibfk_1` FOREIGN KEY (`id_uzytkownika`) REFERENCES `uzytkownicy` (`id_uzytkownika`) ON DELETE CASCADE,
-  ADD CONSTRAINT `pracownicy_ibfk_2` FOREIGN KEY (`id_salonu`) REFERENCES `salony` (`id_salonu`) ON DELETE CASCADE;
-
---
--- Constraints for table `pracownicy_uslugi`
---
-ALTER TABLE `pracownicy_uslugi`
-  ADD CONSTRAINT `pracownicy_uslugi_ibfk_1` FOREIGN KEY (`id_pracownika`) REFERENCES `pracownicy` (`id_pracownika`) ON DELETE CASCADE,
-  ADD CONSTRAINT `pracownicy_uslugi_ibfk_2` FOREIGN KEY (`id_uslugi`) REFERENCES `uslugi` (`id_uslugi`) ON DELETE CASCADE;
-
---
--- Constraints for table `rezerwacje`
---
-ALTER TABLE `rezerwacje`
-  ADD CONSTRAINT `rezerwacje_ibfk_1` FOREIGN KEY (`id_uzytkownika`) REFERENCES `uzytkownicy` (`id_uzytkownika`) ON DELETE CASCADE,
-  ADD CONSTRAINT `rezerwacje_ibfk_2` FOREIGN KEY (`id_pracownika`) REFERENCES `pracownicy` (`id_pracownika`) ON DELETE CASCADE,
-  ADD CONSTRAINT `rezerwacje_ibfk_3` FOREIGN KEY (`id_uslugi`) REFERENCES `uslugi` (`id_uslugi`);
-
---
--- Constraints for table `urlopy`
---
-ALTER TABLE `urlopy`
-  ADD CONSTRAINT `fk_urlopy_pracownik` FOREIGN KEY (`id_pracownika`) REFERENCES `pracownicy` (`id_pracownika`);
-
---
--- Constraints for table `uslugi`
---
-ALTER TABLE `uslugi`
-  ADD CONSTRAINT `uslugi_ibfk_1` FOREIGN KEY (`id_salonu`) REFERENCES `salony` (`id_salonu`) ON DELETE CASCADE,
-  ADD CONSTRAINT `uslugi_ibfk_2` FOREIGN KEY (`id_kategoria`) REFERENCES `kategorie_uslug` (`id`);
+  MODIFY `id_uzytkownika` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=15;
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
