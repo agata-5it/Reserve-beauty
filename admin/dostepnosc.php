@@ -234,7 +234,7 @@ if ($pracownik) {
 
 $menu = ['index.php' => 'Podsumowanie', 'kategorie.php' => 'Kategorie', 'salony.php' => 'Salony',
     'uslugi.php' => 'Usługi', 'pracownicy.php' => 'Pracownicy', 'dostepnosc.php' => 'Dostępność',
-    'urlopy.php' => 'Urlopy', 'rezerwacje.php' => 'Rezerwacje'];
+    'urlopy.php' => 'Urlopy','kalendarz.php' => 'Kalendarz', 'rezerwacje.php' => 'Rezerwacje'];
 ?>
 <!DOCTYPE html>
 <html lang="pl">
