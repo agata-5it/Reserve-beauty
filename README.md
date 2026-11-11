@@ -18,7 +18,7 @@ Aplikacja dedykowana jest branży beauty. Rozwiązuje problem ręcznego umawiani
 
 ## Aktualny Stan Projektu
 
-**Bieżący etap:** **Etap 2: Użytkownicy, rejestracja, logowanie** (Termin: 16.10.2026 r.)
+**Bieżący etap:** **Etap 4: Użytkownicy, rejestracja, logowanie** (Termin: 16.10.2026 r.)
 
 ### Postęp prac według punktów kontrolnych:
 - [-] **Etap 1 (25.09.2026):** Projekt, GitHub i baza danych (database.sql, ERD)
@@ -37,7 +37,7 @@ Aplikacja dedykowana jest branży beauty. Rozwiązuje problem ręcznego umawiani
 - **Opcjonalne biblioteki / frameworki:** Bootstrap / Tailwind CSS oraz jQuery / FullCalendar
 
 ## Instrukcja Uruchomienia Projektu
-1. **Otwarcie http://reserve-beauty.cba.pl/**
+1. **Otwarcie https://reserve-beauty.alwaysdata.net/**
 2. Aby przetestować panel Administratora:
     email: admin123@gmail.com
     haslo: test

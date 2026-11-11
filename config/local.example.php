@@ -1,8 +1,8 @@
 <?php
 
 return [
-    'host' => 'www.mkwk018.cba.pl',
-    'database' => 'agataa123',
-    'username' => 'roott123',
-    'password' => 'ZAQ!2wsx',
+    'host' => 'mysql-reserve-beauty.alwaysdata.net',
+    'database' => 'reserve-beauty_1',
+    'username' => 'reserve-beauty_',
+    'password' => 'agata123',
 ];git
