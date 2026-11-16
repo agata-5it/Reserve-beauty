@@ -1,4 +1,9 @@
 <?php
+// Obsługa również formularza pozostawionego otwartego przed podmianą plików.
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
+    require __DIR__ . '/zapisz-rezerwacje.php';
+    exit;
+}
 require_once __DIR__ . '/../includes/auth.php';
 $klient = wymagajRoli('klient');
 require_once __DIR__ . '/../includes/rezerwacje.php';
@@ -20,94 +25,10 @@ function wyborTekst(array $dane, string $pole): string
     return isset($dane[$pole]) && is_string($dane[$pole]) ? trim($dane[$pole]) : '';
 }
 
-// Zapis i podgląd korzystają z tego samego wyliczania dostępnych godzin.
-// Przy zapisie odczyty są aktualne i odbywają się pod blokadami InnoDB.
-function wyborZapisz(PDO $pdo, array $klient, array $oferta, string $uwagi): int
-{
-    $pdo->beginTransaction();
-    try {
-        // Wspólna kolejność z modułem urlopów: salon, potem pracownik.
-        $q = $pdo->prepare('SELECT id_salonu FROM salony WHERE id_salonu = ? FOR UPDATE');
-        $q->execute([$oferta['id_salonu']]);
-        if (!$q->fetch()) {
-            throw new RuntimeException('Salon nie jest już dostępny. Wybierz usługę ponownie.');
-        }
-        $q = $pdo->prepare('SELECT id_salonu FROM pracownicy WHERE id_pracownika = ? FOR UPDATE');
-        $q->execute([$oferta['id_pracownika']]);
-        if ((int) $q->fetchColumn() !== $oferta['id_salonu']) {
-            throw new RuntimeException('Przypisanie pracownika do salonu zmieniło się. Wybierz pracownika ponownie.');
-        }
-        $q = $pdo->prepare(
-            "SELECT us.cena, us.czas_trwania, us.id_salonu
-             FROM uslugi us
-             JOIN salony s ON s.id_salonu = us.id_salonu
-             JOIN kategorie_uslug k ON k.id = us.id_kategoria
-             JOIN pracownicy_uslugi pu ON pu.id_uslugi = us.id_uslugi
-             JOIN pracownicy p ON p.id_pracownika = pu.id_pracownika AND p.id_salonu = us.id_salonu
-             JOIN uzytkownicy u ON u.id_uzytkownika = p.id_uzytkownika
-             WHERE us.id_uslugi = ? AND p.id_pracownika = ?
-               AND us.aktywnosc = 1 AND s.aktywnosc = 1 AND k.aktywny = 1
-               AND p.aktywnosc = 1 AND u.aktywny = 1 AND u.rola = 'pracownik'
-             FOR UPDATE"
-        );
-        $q->execute([$oferta['id_uslugi'], $oferta['id_pracownika']]);
-        $aktualna = $q->fetch(PDO::FETCH_ASSOC);
-        if (!$aktualna || (int) $aktualna['id_salonu'] !== $oferta['id_salonu']) {
-            throw new RuntimeException('Usługa nie jest już dostępna u tego pracownika w wybranym salonie.');
-        }
-        // Porównujemy z podsumowaniem zapisanym NA SERWERZE, nie z hidden input.
-        if ((string) $aktualna['cena'] !== $oferta['cena']
-            || (int) $aktualna['czas_trwania'] !== $oferta['czas_trwania']) {
-            throw new RuntimeException('Cena lub czas usługi zmieniły się. Nie zapisano wizyty. Sprawdź aktualne warunki poniżej i potwierdź je ponownie.');
-        }
-        $q = $pdo->prepare("SELECT id_uzytkownika FROM uzytkownicy WHERE id_uzytkownika = ? AND aktywny = 1 AND rola = 'klient' FOR UPDATE");
-        $q->execute([$klient['id_uzytkownika']]);
-        if (!$q->fetch()) {
-            throw new RuntimeException('Konto klienta nie jest już aktywne.');
-        }
-        $dzien = rezerwacjaData($oferta['data']);
-        if (!$dzien) {
-            throw new RuntimeException('Wybierz poprawną datę ponownie.');
-        }
-        $q = $pdo->prepare('SELECT czas_rozpoczecia, czas_zakonczenia FROM dostepnosc_pracownikow WHERE id_pracownika = ? AND dzien_tygodnia = ? ORDER BY czas_rozpoczecia FOR UPDATE');
-        $q->execute([$oferta['id_pracownika'], (int) $dzien->format('N')]);
-        $grafik = $q->fetchAll(PDO::FETCH_ASSOC);
-        $q = $pdo->prepare("SELECT id_urlopu FROM urlopy WHERE id_pracownika = ? AND status = 'zaplanowany' AND data_od <= ? AND data_do >= ? FOR UPDATE");
-        $q->execute([$oferta['id_pracownika'], $oferta['data'], $oferta['data']]);
-        $urlop = count($q->fetchAll(PDO::FETCH_ASSOC)) > 0;
-        $q = $pdo->prepare("SELECT data_rozpoczecia, data_zakonczenia FROM rezerwacje WHERE id_pracownika = ? AND status <> 'anulowana' AND data_rozpoczecia < ? AND data_zakonczenia > ? FOR UPDATE");
-        $q->execute([$oferta['id_pracownika'], $dzien->modify('+1 day')->format('Y-m-d H:i:s'), $dzien->format('Y-m-d H:i:s')]);
-        $wizyty = $q->fetchAll(PDO::FETCH_ASSOC);
-        $termin = null;
-        foreach (rezerwacjaWyliczGodziny($oferta['data'], (int) $aktualna['czas_trwania'], $grafik, $wizyty, $urlop) as $wolny) {
-            if ($wolny['godzina'] === $oferta['godzina']) {
-                $termin = $wolny;
-                break;
-            }
-        }
-        if (!$termin) {
-            throw new RuntimeException('Wybrany termin nie jest już dostępny. Wybierz inną godzinę.');
-        }
-        $q = $pdo->prepare(
-            "INSERT INTO rezerwacje
-             (id_uzytkownika, id_pracownika, id_uslugi, data_rozpoczecia, data_zakonczenia, cena, status, uwagi)
-             VALUES (?, ?, ?, ?, ?, ?, 'oczekujaca', ?)"
-        );
-        $q->execute([$klient['id_uzytkownika'], $oferta['id_pracownika'], $oferta['id_uslugi'],
-            $termin['data_rozpoczecia'], $termin['data_zakonczenia'], $aktualna['cena'], $uwagi === '' ? null : $uwagi]);
-        $numer = (int) $pdo->lastInsertId();
-        $pdo->commit();
-        return $numer;
-    } catch (Throwable $wyjatek) {
-        if ($pdo->inTransaction()) { $pdo->rollBack(); }
-        throw $wyjatek;
-    }
-}
-
 $wejscie = $_GET;
-$bladZapisu = '';
-$uwagi = '';
-$czyPost = $_SERVER['REQUEST_METHOD'] === 'POST';
+$bladZapisu = $_SESSION['zapis_rezerwacji_blad'] ?? '';
+$uwagi = $_SESSION['zapis_rezerwacji_uwagi'] ?? '';
+unset($_SESSION['zapis_rezerwacji_blad'], $_SESSION['zapis_rezerwacji_uwagi']);
 $sukces = $_SESSION['wybor_sukces'] ?? '';
 unset($_SESSION['wybor_sukces']);
 $_SESSION['wybor_oferty'] = $_SESSION['wybor_oferty'] ?? [];
@@ -115,38 +36,6 @@ $_SESSION['wybor_oferty'] = $_SESSION['wybor_oferty'] ?? [];
 foreach ($_SESSION['wybor_oferty'] as $klucz => $stara) {
     if ($stara['wygasa'] < time()) { unset($_SESSION['wybor_oferty'][$klucz]); }
 }
-if ($czyPost) {
-    try {
-        if (!sprawdzCsrf()) {
-            throw new RuntimeException('Formularz wygasł. Wybierz usługę i termin ponownie.');
-        }
-        $token = wyborTekst($_POST, 'oferta_token');
-        $oferta = $_SESSION['wybor_oferty'][$token] ?? null;
-        if (!$oferta || $oferta['id_klienta'] !== (int) $klient['id_uzytkownika']) {
-            throw new RuntimeException('Podsumowanie wygasło lub zostało już wykorzystane. Wybierz usługę i termin ponownie.');
-        }
-        $wejscie = ['id_uslugi' => (string) $oferta['id_uslugi'],
-            'id_pracownika' => (string) $oferta['id_pracownika'],
-            'data' => $oferta['data'], 'godzina' => $oferta['godzina']];
-        $uwagi = wyborTekst($_POST, 'uwagi');
-        if (strlen($uwagi) > 4000 || preg_match('//u', $uwagi) !== 1
-            || preg_match_all('/./us', $uwagi) > 1000) {
-            throw new RuntimeException('Uwagi mogą mieć maksymalnie 1000 znaków.');
-        }
-        // Jednorazowe potwierdzenie: po błędzie pokażemy nowe podsumowanie.
-        unset($_SESSION['wybor_oferty'][$token]);
-        $numer = wyborZapisz($pdo, $klient, $oferta, $uwagi);
-        $_SESSION['wybor_sukces'] = 'Zapisano rezerwację nr ' . $numer . '. Status: oczekująca.';
-        przekieruj('/klient/rezerwuj.php?id_uslugi=' . $oferta['id_uslugi']);
-        exit;
-    } catch (PDOException $wyjatek) {
-        error_log('Rezerwacja: zapis, SQLSTATE ' . $wyjatek->getCode());
-        $bladZapisu = 'Nie udało się zapisać wizyty. Termin lub dane mogły się zmienić. Sprawdź ponownie podsumowanie przed potwierdzeniem.';
-    } catch (RuntimeException $wyjatek) {
-        $bladZapisu = $wyjatek->getMessage();
-    }
-}
-
 $idUslugi = wyborId($wejscie['id_uslugi'] ?? null);
 $idPracownika = wyborId($wejscie['id_pracownika'] ?? null);
 $czyWybor = isset($wejscie['id_pracownika']);
@@ -272,19 +161,17 @@ if (!$blad && $wybrany && $data !== '') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Rezerwacja wizyty — Reserve Beauty</title>
-    <link rel="stylesheet" href="css/klient.css">
+    <link rel="stylesheet" href="<?= e(BASE_URL) ?>/css/klient.css?v=2">
 </head>
-<body>
-    <header>
-        <nav aria-label="Menu główne">
-            <a class="logo" href="<?= e(BASE_URL) ?>/index.php">Reserve Beauty</a>
-            <ul>
-                <li><a href="<?= e(BASE_URL) ?>/oferta.php">Oferta</a></li>
-                <li><a href="<?= e(BASE_URL) ?>/klient/index.php">Panel klienta</a></li>
-                <li><a href="<?= e(BASE_URL) ?>/profil.php">Mój profil</a></li>
-            </ul>
-        </nav>
-    </header>
+<body class="strona-klienta rezerwacja">
+    <nav class="menu-klienta" aria-label="Menu klienta">
+        <ul>
+            <li><a href="<?= e(BASE_URL) ?>/klient/index.php">Podsumowanie</a></li>
+            <li><a href="<?= e(BASE_URL) ?>/klient/index.php#wizyty">Moje rezerwacje</a></li>
+            <li><a href="<?= e(BASE_URL) ?>/oferta.php" aria-current="page">Oferta usług</a></li>
+            <li><a href="<?= e(BASE_URL) ?>/profil.php">Mój profil</a></li>
+        </ul>
+    </nav>
     <main>
         <p class="etapy">Usługa → Pracownik → Data → Godzina → Potwierdzenie</p>
         <?php if ($sukces): ?><p class="sukces" role="status"><?= e($sukces) ?></p><?php endif; ?>
@@ -371,7 +258,7 @@ if (!$blad && $wybrany && $data !== '') {
                                     <dt>Czas trwania</dt><dd><?= (int) $usluga['czas_trwania'] ?> min</dd>
                                     <dt>Cena</dt><dd><?= e(number_format((float) $usluga['cena'], 2, ',', ' ')) ?> zł</dd>
                                 </dl>
-                                <form method="post" action="<?= e(BASE_URL) ?>/klient/rezerwuj.php#podsumowanie">
+                                <form method="post" action="<?= e(BASE_URL) ?>/klient/zapisz-rezerwacje.php">
                                     <input type="hidden" name="csrf_token" value="<?= e($_SESSION['csrf_token']) ?>">
                                     <input type="hidden" name="oferta_token" value="<?= e($tokenPodsumowania) ?>">
                                     <label>Uwagi (opcjonalne, do 1000 znaków)<textarea name="uwagi" maxlength="1000"><?= e($uwagi) ?></textarea></label>
