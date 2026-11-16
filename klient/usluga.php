@@ -49,7 +49,25 @@ if ($id === false) {
     <link rel="stylesheet" href="<?= e(BASE_URL) ?>/css/klient.css?v=2">
 </head>
 <body class="strona-klienta usluga">
-    <?php $stronaMenu = 'usluga'; require __DIR__ . '/includes/menu-klienta.php'; ?>
+    <?php $osobaMenu = zalogowanyUzytkownik(); ?>
+    <nav class="menu-klienta" aria-label="Menu główne">
+        <ul>
+            <?php if ($osobaMenu && $osobaMenu['rola'] === 'klient'): ?>
+                <li><a href="<?= e(BASE_URL) ?>/klient/index.php">Podsumowanie</a></li>
+                <li><a href="<?= e(BASE_URL) ?>/klient/index.php#wizyty">Moje rezerwacje</a></li>
+            <?php elseif ($osobaMenu): ?>
+                <li><a href="<?= e(BASE_URL . adresPanelu($osobaMenu['rola'])) ?>">Mój panel</a></li>
+            <?php else: ?>
+                <li><a href="<?= e(BASE_URL) ?>/index.php">Strona główna</a></li>
+            <?php endif; ?>
+            <li><a href="<?= e(BASE_URL) ?>/oferta.php" aria-current="page">Oferta usług</a></li>
+            <?php if ($osobaMenu): ?>
+                <li><a href="<?= e(BASE_URL) ?>/profil.php">Mój profil</a></li>
+            <?php else: ?>
+                <li><a href="<?= e(BASE_URL) ?>/logowanie.php">Zaloguj się</a></li>
+            <?php endif; ?>
+        </ul>
+    </nav>
     <main>
         <a class="powrot" href="<?= e(BASE_URL) ?>/oferta.php">← Wróć do oferty</a>
         <?php if ($blad): ?>
