@@ -1,273 +1,172 @@
 <?php
-// Wspólne funkcje. Ten plik nie wyświetla strony i nie zapisuje rezerwacji.
-// Połączenie $pdo przekazujemy z istniejącego includes/auth.php.
-// W plikach korzystających z funkcji używaj require_once.
-date_default_timezone_set('Europe/Warsaw');
+require_once __DIR__ . '/../includes/auth.php';
+$klient = wymagajRoli('klient');
+header('Cache-Control: no-store');
 
-function rezerwacjaStrefa(): DateTimeZone
+// Właściciel listy pochodzi wyłącznie z zalogowanego konta.
+$idKlienta = (int) $klient['id_uzytkownika'];
+$teraz = (new DateTimeImmutable('now', new DateTimeZone('Europe/Warsaw')))->format('Y-m-d H:i:s');
+$statusy = ['oczekujaca' => 'Oczekująca', 'potwierdzona' => 'Potwierdzona',
+    'zrealizowana' => 'Zrealizowana', 'anulowana' => 'Anulowana'];
+$blad = '';
+$komunikat = $_SESSION['wybor_sukces'] ?? '';
+unset($_SESSION['wybor_sukces']);
+
+function listaData(string $data): string
 {
-    return new DateTimeZone('Europe/Warsaw');
+    return (new DateTimeImmutable($data, new DateTimeZone('Europe/Warsaw')))->format('d.m.Y H:i');
 }
 
-function rezerwacjaTeraz(): DateTimeImmutable
+function listaStrona(string $pole): int
 {
-    return new DateTimeImmutable('now', rezerwacjaStrefa());
+    $wartosc = $_GET[$pole] ?? '1';
+    if (!is_string($wartosc)) { return 1; }
+    return (int) (filter_var($wartosc, FILTER_VALIDATE_INT,
+        ['options' => ['min_range' => 1, 'max_range' => 1000000]]) ?: 1);
 }
 
-// Zwraca datę albo null. Nie dopuszcza np. 31 lutego.
-function rezerwacjaData(string $tekst): ?DateTimeImmutable
-{
-    if (!preg_match('/\A[0-9]{4}-[0-9]{2}-[0-9]{2}\z/', $tekst)
-        || $tekst < '1000-01-01' || $tekst > '9999-12-30') {
-        return null;
-    }
-    $data = DateTimeImmutable::createFromFormat('!Y-m-d', $tekst, rezerwacjaStrefa());
-    return $data && $data->format('Y-m-d') === $tekst ? $data : null;
-}
+$sekcje = [
+    'nadchodzace' => ['tytul' => 'Nadchodzące wizyty',
+        'opis' => 'Oczekujące i potwierdzone wizyty, które jeszcze się nie zakończyły — również trwające.',
+        'pusto' => 'Nie masz nadchodzących wizyt.', 'strona' => listaStrona('nadchodzace')],
+    'historia' => ['tytul' => 'Historia rezerwacji',
+        'opis' => 'Wizyty anulowane, zrealizowane oraz te, których termin już minął. Upływ czasu nie zmienia ich statusu.',
+        'pusto' => 'Historia rezerwacji jest jeszcze pusta.', 'strona' => listaStrona('historia')]
+];
 
-function rezerwacjaGodzina(string $tekst): bool
-{
-    return preg_match('/\A(?:[01][0-9]|2[0-3]):[0-5][0-9]\z/', $tekst) === 1;
+try {
+    foreach ($sekcje as $klucz => &$sekcja) {
+        // Fragmenty SQL są stałe — nie pochodzą z adresu ani formularza.
+        $warunek = $klucz === 'nadchodzace'
+            ? "r.status IN ('oczekujaca', 'potwierdzona') AND r.data_zakonczenia > ?"
+            : "(r.status NOT IN ('oczekujaca', 'potwierdzona') OR r.data_zakonczenia <= ?)";
+        $q = $pdo->prepare('SELECT COUNT(*) FROM rezerwacje r WHERE r.id_uzytkownika = ? AND ' . $warunek);
+        $q->execute([$idKlienta, $teraz]);
+        $sekcja['liczba'] = (int) $q->fetchColumn();
+        $sekcja['strony'] = max(1, (int) ceil($sekcja['liczba'] / 10));
+        $sekcja['strona'] = min($sekcja['strona'], $sekcja['strony']);
+        $offset = ($sekcja['strona'] - 1) * 10;
+        $kolejnosc = $klucz === 'nadchodzace' ? 'ASC' : 'DESC';
+        // Nie filtrujemy aktywności usługi: historyczna wizyta ma pozostać widoczna.
+        // Cena i obie godziny pochodzą z rezerwacji, nie z aktualnej oferty.
+        $q = $pdo->prepare(
+            'SELECT r.nr_rezerwacji, r.data_rozpoczecia, r.data_zakonczenia,
+                    r.cena, r.status, r.uwagi, us.nazwa AS usluga,
+                    s.nazwa AS salon, s.miasto, u.imie, u.nazwisko
+             FROM rezerwacje r
+             LEFT JOIN uslugi us ON us.id_uslugi = r.id_uslugi
+             LEFT JOIN salony s ON s.id_salonu = us.id_salonu
+             LEFT JOIN pracownicy p ON p.id_pracownika = r.id_pracownika
+             LEFT JOIN uzytkownicy u ON u.id_uzytkownika = p.id_uzytkownika
+             WHERE r.id_uzytkownika = ? AND ' . $warunek . '
+             ORDER BY r.data_rozpoczecia ' . $kolejnosc . ', r.nr_rezerwacji ' . $kolejnosc . '
+             LIMIT 10 OFFSET ' . $offset
+        );
+        $q->execute([$idKlienta, $teraz]);
+        $sekcja['wizyty'] = $q->fetchAll(PDO::FETCH_ASSOC);
+    }
+    unset($sekcja);
+} catch (PDOException $wyjatek) {
+    unset($sekcja);
+    error_log('Lista rezerwacji klienta: SQLSTATE ' . $wyjatek->getCode());
+    http_response_code(503);
+    $blad = 'Nie udało się pobrać Twoich rezerwacji. Odśwież stronę, aby spróbować ponownie.';
 }
-
-// Nieistniejące i dwuznaczne godziny podczas zmiany czasu są odrzucane.
-// Wasza kolumna DATETIME nie zapisuje, o które wystąpienie godziny chodzi.
-function rezerwacjaTermin(string $data, string $godzina): ?DateTimeImmutable
-{
-    if (!rezerwacjaData($data) || !rezerwacjaGodzina($godzina)) {
-        return null;
-    }
-    $tekst = $data . ' ' . $godzina;
-    $termin = DateTimeImmutable::createFromFormat('!Y-m-d H:i', $tekst, rezerwacjaStrefa());
-    if (!$termin || $termin->format('Y-m-d H:i') !== $tekst) {
-        return null;
-    }
-    foreach ([-3600, 3600] as $przesuniecie) {
-        $inny = $termin->setTimestamp($termin->getTimestamp() + $przesuniecie);
-        if ($inny->format('Y-m-d H:i') === $tekst) {
-            return null;
-        }
-    }
-    return $termin;
-}
-
-// Przedziały mogą się stykać: 09–10 oraz 10–11 nie kolidują.
-// Argumenty muszą być poprawnymi datami w formacie Y-m-d H:i:s.
-function rezerwacjaNakladaSie(string $od, string $do, string $inneOd, string $inneDo): bool
-{
-    return $od < $inneDo && $do > $inneOd;
-}
-
-function rezerwacjaGodzinyPracy(PDO $pdo, int $idPracownika, string $data): array
-{
-    $dzien = rezerwacjaData($data);
-    if ($idPracownika < 1 || !$dzien) {
-        throw new InvalidArgumentException('Wybierz pracownika i poprawną datę.');
-    }
-    $zapytanie = $pdo->prepare(
-        'SELECT czas_rozpoczecia, czas_zakonczenia
-         FROM dostepnosc_pracownikow
-         WHERE id_pracownika = ? AND dzien_tygodnia = ?
-         ORDER BY czas_rozpoczecia'
-    );
-    $zapytanie->execute([$idPracownika, (int) $dzien->format('N')]);
-    return $zapytanie->fetchAll(PDO::FETCH_ASSOC);
-}
-
-// Obie daty urlopu są wliczone. Anulowany wpis nie blokuje terminów.
-function rezerwacjaCzyUrlop(PDO $pdo, int $idPracownika, string $data): bool
-{
-    if ($idPracownika < 1 || !rezerwacjaData($data)) {
-        throw new InvalidArgumentException('Wybierz pracownika i poprawną datę.');
-    }
-    $zapytanie = $pdo->prepare(
-        "SELECT id_urlopu FROM urlopy
-         WHERE id_pracownika = ? AND status = 'zaplanowany'
-         AND data_od <= ? AND data_do >= ? LIMIT 1"
-    );
-    $zapytanie->execute([$idPracownika, $data, $data]);
-    return $zapytanie->fetchColumn() !== false;
-}
-
-// Pobiera również wizyty zaczęte poprzedniego dnia i kończące się tego dnia.
-// Zrealizowane zachowujemy jako zajęty czas, zgodnie z regułą: tylko anulowanie zwalnia.
-function rezerwacjaWizytyDnia(PDO $pdo, int $idPracownika, string $data): array
-{
-    $dzien = rezerwacjaData($data);
-    if ($idPracownika < 1 || !$dzien) {
-        throw new InvalidArgumentException('Wybierz pracownika i poprawną datę.');
-    }
-    $zapytanie = $pdo->prepare(
-        "SELECT nr_rezerwacji, data_rozpoczecia, data_zakonczenia
-         FROM rezerwacje WHERE id_pracownika = ? AND status <> 'anulowana'
-         AND data_rozpoczecia < ? AND data_zakonczenia > ?
-         ORDER BY data_rozpoczecia"
-    );
-    $zapytanie->execute([
-        $idPracownika,
-        $dzien->modify('+1 day')->format('Y-m-d H:i:s'),
-        $dzien->format('Y-m-d H:i:s')
-    ]);
-    return $zapytanie->fetchAll(PDO::FETCH_ASSOC);
-}
-
-function rezerwacjaCzyKolizja(array $wizyty, string $od, string $do): bool
-{
-    foreach ($wizyty as $wizyta) {
-        if (rezerwacjaNakladaSie($od, $do, $wizyta['data_rozpoczecia'], $wizyta['data_zakonczenia'])) {
-            return true;
-        }
-    }
-    return false;
-}
-
-// Łączy stykające się godziny pracy; prawdziwa przerwa pozostaje przerwą.
-function rezerwacjaPolaczGodziny(array $godziny): array
-{
-    usort($godziny, function ($a, $b) {
-        return strcmp($a['czas_rozpoczecia'], $b['czas_rozpoczecia']);
-    });
-    $wynik = [];
-    foreach ($godziny as $wiersz) {
-        $od = $wiersz['czas_rozpoczecia'];
-        $do = $wiersz['czas_zakonczenia'];
-        $wzor = '/\A(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\z/';
-        if (!preg_match($wzor, $od) || !preg_match($wzor, $do) || $do <= $od) {
-            throw new RuntimeException('Grafik zawiera niepoprawne godziny. Skontaktuj się z administratorem.');
-        }
-        $ostatni = count($wynik) - 1;
-        if ($ostatni >= 0 && $od <= $wynik[$ostatni]['czas_zakonczenia']) {
-            $wynik[$ostatni]['czas_zakonczenia'] = max($do, $wynik[$ostatni]['czas_zakonczenia']);
-        } else {
-            $wynik[] = $wiersz;
-        }
-    }
-    return $wynik;
-}
-
-// Czyste obliczenia, bez zapytań SQL. Pomocnicza funkcja także do testowania.
-// Kroki liczymy od północy: przy 15 minutach otrzymujemy 08:00, 08:15 itd.
-function rezerwacjaWyliczGodziny(
-    string $data,
-    int $czasTrwania,
-    array $godzinyPracy,
-    array $wizyty,
-    bool $czyUrlop,
-    int $krok = 15,
-    ?DateTimeImmutable $teraz = null
-): array {
-    $dzien = rezerwacjaData($data);
-    if (!$dzien || $czasTrwania < 1 || $czasTrwania > 1440 || $krok < 1 || $krok > 1440) {
-        throw new InvalidArgumentException('Niepoprawna data, czas trwania lub odstęp między terminami.');
-    }
-    $teraz = ($teraz ?? rezerwacjaTeraz())->setTimezone(rezerwacjaStrefa());
-    if ($czyUrlop || $data < $teraz->format('Y-m-d')) {
-        return [];
-    }
-    $godzinyPracy = rezerwacjaPolaczGodziny($godzinyPracy);
-    $wynik = [];
-    for ($minuta = 0; $minuta < 1440; $minuta += $krok) {
-        $godzina = sprintf('%02d:%02d', intdiv($minuta, 60), $minuta % 60);
-        $start = rezerwacjaTermin($data, $godzina);
-        if (!$start || $start <= $teraz) {
-            continue;
-        }
-        $koniec = $start->add(new DateInterval('PT' . $czasTrwania . 'M'));
-        // Jeden przedział pracy mieści się w jednym dniu.
-        // Nie proponujemy wizyt przechodzących przez zmianę czasu.
-        if ($koniec->format('Y-m-d') !== $data || $start->getOffset() !== $koniec->getOffset()
-            || !rezerwacjaTermin($data, $koniec->format('H:i'))) {
-            continue;
-        }
-        $wPracy = false;
-        foreach ($godzinyPracy as $przedzial) {
-            if ($start->format('H:i:s') >= $przedzial['czas_rozpoczecia']
-                && $koniec->format('H:i:s') <= $przedzial['czas_zakonczenia']) {
-                $wPracy = true;
-                break;
-            }
-        }
-        $od = $start->format('Y-m-d H:i:s');
-        $do = $koniec->format('Y-m-d H:i:s');
-        if ($wPracy && !rezerwacjaCzyKolizja($wizyty, $od, $do)) {
-            $wynik[] = ['godzina' => $godzina, 'data_rozpoczecia' => $od, 'data_zakonczenia' => $do];
-        }
-    }
-    return $wynik;
-}
-
-// Sprawdza też przypisanie usługi, wspólny salon i wszystkie aktywności.
-function rezerwacjaUslugaPracownika(PDO $pdo, int $idPracownika, int $idUslugi): array
-{
-    if ($idPracownika < 1 || $idUslugi < 1) {
-        throw new InvalidArgumentException('Wybierz usługę i pracownika.');
-    }
-    $zapytanie = $pdo->prepare(
-        "SELECT us.id_uslugi, us.id_salonu, us.nazwa, us.cena, us.czas_trwania
-         FROM pracownicy_uslugi pu
-         JOIN pracownicy p ON p.id_pracownika = pu.id_pracownika
-         JOIN uzytkownicy u ON u.id_uzytkownika = p.id_uzytkownika
-         JOIN uslugi us ON us.id_uslugi = pu.id_uslugi AND us.id_salonu = p.id_salonu
-         JOIN salony s ON s.id_salonu = us.id_salonu
-         JOIN kategorie_uslug k ON k.id = us.id_kategoria
-         WHERE pu.id_pracownika = ? AND pu.id_uslugi = ?
-         AND p.aktywnosc = 1 AND u.aktywny = 1 AND u.rola = 'pracownik'
-         AND us.aktywnosc = 1 AND s.aktywnosc = 1 AND k.aktywny = 1"
-    );
-    $zapytanie->execute([$idPracownika, $idUslugi]);
-    $usluga = $zapytanie->fetch(PDO::FETCH_ASSOC);
-    if (!$usluga) {
-        throw new RuntimeException('Ta usługa nie jest dostępna u wybranego pracownika.');
-    }
-    if ((int) $usluga['czas_trwania'] < 1 || (int) $usluga['czas_trwania'] > 1440
-        || !is_numeric($usluga['cena']) || (float) $usluga['cena'] < 0) {
-        throw new RuntimeException('Usługa ma niepoprawną cenę lub czas trwania. Skontaktuj się z administratorem.');
-    }
-    return $usluga;
-}
-
-// Główna funkcja do formularza: [] oznacza brak dostępnych godzin.
-// Błędy bazy są przekazywane wyżej, a nie zamieniane na fałszywe wolne terminy.
-function rezerwacjaDostepneGodziny(PDO $pdo, int $idPracownika, int $idUslugi, string $data, int $krok = 15): array
-{
-    $usluga = rezerwacjaUslugaPracownika($pdo, $idPracownika, $idUslugi);
-    return rezerwacjaWyliczGodziny(
-        $data,
-        (int) $usluga['czas_trwania'],
-        rezerwacjaGodzinyPracy($pdo, $idPracownika, $data),
-        rezerwacjaWizytyDnia($pdo, $idPracownika, $data),
-        rezerwacjaCzyUrlop($pdo, $idPracownika, $data),
-        $krok
-    );
-}
-
-// Reguły statusów dla administratora i pracownika.
-// To NIE sprawdza uprawnień ani właściciela wizyty i NIE zapisuje zmian.
-// Klientowi osobno pozwalamy wyłącznie anulować własną przyszłą wizytę.
-function rezerwacjaDozwoloneStatusy(string $status, string $dataZakonczenia, ?DateTimeImmutable $teraz = null): array
-{
-    if ($status === 'oczekujaca') {
-        return ['potwierdzona', 'anulowana'];
-    }
-    if ($status !== 'potwierdzona') {
-        return [];
-    }
-    $wynik = ['anulowana'];
-    $koniec = DateTimeImmutable::createFromFormat('!Y-m-d H:i:s', $dataZakonczenia, rezerwacjaStrefa());
-    if ($koniec && $koniec->format('Y-m-d H:i:s') === $dataZakonczenia
-        && $koniec <= ($teraz ?? rezerwacjaTeraz())) {
-        $wynik[] = 'zrealizowana';
-    }
-    return $wynik;
-}
-
-function rezerwacjaCzyZmianaStatusu(string $status, string $nowyStatus, string $dataZakonczenia): bool
-{
-    return in_array($nowyStatus, rezerwacjaDozwoloneStatusy($status, $dataZakonczenia), true);
-}
-
-// UWAGA DOTYCZĄCA PRZYSZŁEGO ZAPISU:
-// Wynik dostępności jest podglądem, a nie zablokowaniem terminu.
-// Przed INSERT trzeba ponownie sprawdzić dane w transakcji z blokadą pracownika.
-// Potrzebne są tabele InnoDB, wspólna kolejność blokad i aktualne odczyty SQL.
-// Ten plik celowo nie rozpoczyna transakcji ani nie wykonuje INSERT/UPDATE.
+?>
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Moje rezerwacje — Reserve Beauty</title>
+    <link rel="stylesheet" href="<?= e(BASE_URL) ?>/css/klient.css?v=2">
+</head>
+<body class="strona-klienta panel-klienta">
+    <nav class="menu-klienta" aria-label="Menu klienta">
+        <ul>
+            <li><a href="<?= e(BASE_URL) ?>/klient/index.php">Podsumowanie</a></li>
+            <li><a href="<?= e(BASE_URL) ?>/klient/rezerwacje.php" aria-current="page">Moje rezerwacje</a></li>
+            <li><a href="<?= e(BASE_URL) ?>/oferta.php">Oferta usług</a></li>
+            <li><a href="<?= e(BASE_URL) ?>/profil.php">Mój profil</a></li>
+        </ul>
+    </nav>
+    <main>
+        <header class="pole">
+            <div>
+                <p class="marka">RESERVE BEAUTY</p>
+                <h1>Moje rezerwacje</h1>
+                <p>Twoje nadchodzące wizyty i historia w jednym miejscu.</p>
+            </div>
+            <a class="przycisk" href="<?= e(BASE_URL) ?>/oferta.php">Zarezerwuj wizytę</a>
+        </header>
+        <?php if ($komunikat): ?>
+            <p class="sukces" role="status"><?= e($komunikat) ?></p>
+        <?php endif; ?>
+        <?php if ($blad): ?>
+            <p class="blad" role="alert"><?= e($blad) ?></p>
+        <?php else: ?>
+            <p class="akcje">
+                <a href="#nadchodzace">Nadchodzące (<?= $sekcje['nadchodzace']['liczba'] ?>)</a>
+                <a href="#historia">Historia (<?= $sekcje['historia']['liczba'] ?>)</a>
+            </p>
+            <?php foreach ($sekcje as $klucz => $sekcja): ?>
+                <section class="karta" id="<?= e($klucz) ?>">
+                    <h2><?= e($sekcja['tytul']) ?></h2>
+                    <p class="pomoc"><?= e($sekcja['opis']) ?></p>
+                    <?php if (!$sekcja['wizyty']): ?>
+                        <p><?= e($sekcja['pusto']) ?></p>
+                    <?php else: ?>
+                        <div class="tabela" tabindex="0" role="region" aria-label="<?= e($sekcja['tytul']) ?> — na małym ekranie przewiń poziomo">
+                            <table>
+                                <thead>
+                                    <tr><th scope="col">Numer</th><th scope="col">Usługa i salon</th>
+                                        <th scope="col">Pracownik</th><th scope="col">Początek</th>
+                                        <th scope="col">Koniec</th><th scope="col">Zapisana cena</th>
+                                        <th scope="col">Status</th><th scope="col">Działania</th></tr>
+                                </thead>
+                                <tbody>
+                                    <?php foreach ($sekcja['wizyty'] as $w): ?>
+                                        <tr>
+                                            <td>#<?= (int) $w['nr_rezerwacji'] ?></td>
+                                            <td><strong><?= e($w['usluga'] ?? 'Usługa niedostępna') ?></strong>
+                                                <small><?= e(($w['salon'] ?? 'Salon niedostępny') . (!empty($w['miasto']) ? ' — ' . $w['miasto'] : '')) ?></small></td>
+                                            <td><?= e(trim(($w['imie'] ?? '') . ' ' . ($w['nazwisko'] ?? '')) ?: 'Pracownik niedostępny') ?></td>
+                                            <td><?= e(listaData($w['data_rozpoczecia'])) ?></td>
+                                            <td><?= e(listaData($w['data_zakonczenia'])) ?></td>
+                                            <td><?= e(number_format((float) $w['cena'], 2, ',', ' ')) ?> zł</td>
+                                            <td><span class="status <?= e(isset($statusy[$w['status']]) ? $w['status'] : '') ?>"><?= e($statusy[$w['status']] ?? 'Nieznany status') ?></span>
+                                                <?php if ($klucz === 'nadchodzace' && $w['data_rozpoczecia'] <= $teraz): ?><small>Wizyta trwa</small><?php endif; ?>
+                                            </td>
+                                            <td>
+                                                <details>
+                                                    <summary>Uwagi do wizyty</summary>
+                                                    <p><?= nl2br(e($w['uwagi'] ?: 'Nie dodano uwag.')) ?></p>
+                                                </details>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                        <?php if ($sekcja['strony'] > 1): ?>
+                            <nav class="stronicowanie" aria-label="Strony: <?= e($sekcja['tytul']) ?>">
+                                <?php $parametry = ['nadchodzace' => $sekcje['nadchodzace']['strona'], 'historia' => $sekcje['historia']['strona']]; ?>
+                                <?php if ($sekcja['strona'] > 1): ?>
+                                    <?php $parametry[$klucz] = $sekcja['strona'] - 1; ?>
+                                    <a href="?<?= e(http_build_query($parametry)) ?>#<?= e($klucz) ?>">← Poprzednia</a>
+                                <?php endif; ?>
+                                <span>Strona <?= $sekcja['strona'] ?> z <?= $sekcja['strony'] ?></span>
+                                <?php if ($sekcja['strona'] < $sekcja['strony']): ?>
+                                    <?php $parametry[$klucz] = $sekcja['strona'] + 1; ?>
+                                    <a href="?<?= e(http_build_query($parametry)) ?>#<?= e($klucz) ?>">Następna →</a>
+                                <?php endif; ?>
+                            </nav>
+                        <?php endif; ?>
+                    <?php endif; ?>
+                </section>
+            <?php endforeach; ?>
+            <p class="pomoc">Cena i godziny są zapisane przy rezerwacji. W sprawie zmiany terminu lub anulowania skontaktuj się z salonem.</p>
+        <?php endif; ?>
+    </main>
+</body>
+</html>
