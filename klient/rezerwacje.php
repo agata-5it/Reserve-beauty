@@ -11,6 +11,9 @@ $statusy = ['oczekujaca' => 'Oczekująca', 'potwierdzona' => 'Potwierdzona',
 $blad = '';
 $komunikat = $_SESSION['wybor_sukces'] ?? '';
 unset($_SESSION['wybor_sukces']);
+$anulowanieSukces = $_SESSION['anulowanie_sukces'] ?? '';
+$anulowanieBlad = $_SESSION['anulowanie_blad'] ?? '';
+unset($_SESSION['anulowanie_sukces'], $_SESSION['anulowanie_blad']);
 
 function listaData(string $data): string
 {
@@ -102,6 +105,12 @@ try {
         <?php if ($komunikat): ?>
             <p class="sukces" role="status"><?= e($komunikat) ?></p>
         <?php endif; ?>
+        <?php if ($anulowanieSukces): ?>
+            <p class="sukces" role="status"><?= e($anulowanieSukces) ?></p>
+        <?php endif; ?>
+        <?php if ($anulowanieBlad): ?>
+            <p class="blad" role="alert"><?= e($anulowanieBlad) ?></p>
+        <?php endif; ?>
         <?php if ($blad): ?>
             <p class="blad" role="alert"><?= e($blad) ?></p>
         <?php else: ?>
@@ -138,6 +147,14 @@ try {
                                                 <?php if ($klucz === 'nadchodzace' && $w['data_rozpoczecia'] <= $teraz): ?><small>Wizyta trwa</small><?php endif; ?>
                                             </td>
                                             <td>
+                                                <?php if (in_array($w['status'], ['oczekujaca', 'potwierdzona'], true) && $w['data_rozpoczecia'] > $teraz): ?>
+                                                    <form method="post" action="<?= e(BASE_URL) ?>/klient/anuluj-rezerwacje.php"
+                                                          onsubmit="return confirm('Czy na pewno anulować tę wizytę?');">
+                                                        <input type="hidden" name="csrf_token" value="<?= e($_SESSION['csrf_token']) ?>">
+                                                        <input type="hidden" name="nr_rezerwacji" value="<?= (int) $w['nr_rezerwacji'] ?>">
+                                                        <button type="submit">Anuluj</button>
+                                                    </form>
+                                                <?php endif; ?>
                                                 <details>
                                                     <summary>Uwagi do wizyty</summary>
                                                     <p><?= nl2br(e($w['uwagi'] ?: 'Nie dodano uwag.')) ?></p>
@@ -165,7 +182,7 @@ try {
                     <?php endif; ?>
                 </section>
             <?php endforeach; ?>
-            <p class="pomoc">Cena i godziny są zapisane przy rezerwacji. W sprawie zmiany terminu lub anulowania skontaktuj się z salonem.</p>
+            <p class="pomoc">Cena i godziny są zapisane przy rezerwacji. Przyszłą wizytę oczekującą lub potwierdzoną możesz anulować przyciskiem „Anuluj”. W sprawie zmiany terminu skontaktuj się z salonem.</p>
         <?php endif; ?>
     </main>
 </body>
