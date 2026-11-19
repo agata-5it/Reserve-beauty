@@ -162,12 +162,13 @@ if (!$blad && $wybrany && $data !== '') {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Rezerwacja wizyty — Reserve Beauty</title>
     <link rel="stylesheet" href="<?= e(BASE_URL) ?>/css/klient.css?v=2">
+    <script src="<?= e(BASE_URL) ?>/js/rezerwacje.js?v=1" defer></script>
 </head>
 <body class="strona-klienta rezerwacja">
     <nav class="menu-klienta" aria-label="Menu klienta">
         <ul>
             <li><a href="<?= e(BASE_URL) ?>/klient/index.php">Podsumowanie</a></li>
-            <li><a href="<?= e(BASE_URL) ?>/klient/index.php#wizyty">Moje rezerwacje</a></li>
+            <li><a href="<?= e(BASE_URL) ?>/klient/rezerwacje.php">Moje rezerwacje</a></li>
             <li><a href="<?= e(BASE_URL) ?>/oferta.php" aria-current="page">Oferta usług</a></li>
             <li><a href="<?= e(BASE_URL) ?>/profil.php">Mój profil</a></li>
         </ul>
@@ -197,8 +198,9 @@ if (!$blad && $wybrany && $data !== '') {
                     <p role="status">Obecnie nie ma dostępnych pracowników wykonujących tę usługę.</p>
                     <a class="przycisk" href="<?= e(BASE_URL) ?>/oferta.php">Wybierz inną usługę</a>
                 <?php else: ?>
-                    <!-- GET służy tylko do wyboru, nie zmienia danych w bazie. -->
-                    <form method="get" action="<?= e(BASE_URL) ?>/klient/rezerwuj.php">
+                    <!-- Bez JavaScript ten sam formularz działa przez zwykły GET. -->
+                    <form id="wybor-terminu" method="get" action="<?= e(BASE_URL) ?>/klient/rezerwuj.php#podsumowanie"
+                          data-terminy-url="<?= e(BASE_URL) ?>/klient/dostepne-terminy.php">
                         <input type="hidden" name="id_uslugi" value="<?= $idUslugi ?>">
                         <fieldset>
                             <legend>Kto ma wykonać usługę?</legend>
@@ -214,59 +216,42 @@ if (!$blad && $wybrany && $data !== '') {
                                 </label>
                             <?php endforeach; ?>
                         </fieldset>
-                        <button type="submit">Wybierz pracownika</button>
-                    </form>
-                    <?php if ($wybrany): ?>
+                        <label>Data wizyty
+                            <input type="date" name="data" required min="<?= e(rezerwacjaTeraz()->format('Y-m-d')) ?>" max="9999-12-30" value="<?= e($data) ?>">
+                        </label>
+                        <button type="submit">Pokaż wolne godziny</button>
+                        <p class="pomoc">Wybierz pracownika i datę. Kliknięcie godziny otworzy aktualne podsumowanie przed potwierdzeniem.</p>
                         <div class="termin">
-                            <h2>Wybierz datę</h2>
-                            <p>Pracownik: <strong><?= e($wybrany['imie'] . ' ' . $wybrany['nazwisko']) ?></strong></p>
-                            <form method="get" action="<?= e(BASE_URL) ?>/klient/rezerwuj.php">
-                                <input type="hidden" name="id_uslugi" value="<?= $idUslugi ?>">
-                                <input type="hidden" name="id_pracownika" value="<?= $idPracownika ?>">
-                                <label>Data wizyty<input type="date" name="data" required min="<?= e(rezerwacjaTeraz()->format('Y-m-d')) ?>" max="9999-12-30" value="<?= e($data) ?>"></label>
-                                <button type="submit">Pokaż wolne godziny</button>
-                            </form>
+                            <h2>Wybierz godzinę</h2>
+                            <p id="terminy-komunikat" role="status" aria-live="polite" aria-atomic="true"><?= e($bladTerminu !== '' ? $bladTerminu : ($wybrany && $data !== '' ? ($godziny ? 'Wybierz dostępną godzinę.' : 'Brak wolnych godzin w tym dniu.') : 'Wybierz pracownika i datę.')) ?></p>
+                            <div id="terminy-godziny" class="akcje" aria-label="Dostępne godziny" aria-busy="false">
+                                <?php foreach ($godziny as $wolny): ?>
+                                    <button type="submit" name="godzina" value="<?= e($wolny['godzina']) ?>" aria-label="Wybierz godzinę <?= e($wolny['godzina']) ?>"><?= e($wolny['godzina']) ?></button>
+                                <?php endforeach; ?>
+                            </div>
                         </div>
-                        <?php if ($bladTerminu): ?><p class="blad" role="alert"><?= e($bladTerminu) ?></p><?php endif; ?>
-                        <?php if ($godziny): ?>
-                            <form class="termin" method="get" action="<?= e(BASE_URL) ?>/klient/rezerwuj.php#podsumowanie">
-                                <h2>Wybierz godzinę</h2>
-                                <input type="hidden" name="id_uslugi" value="<?= $idUslugi ?>">
-                                <input type="hidden" name="id_pracownika" value="<?= $idPracownika ?>">
-                                <input type="hidden" name="data" value="<?= e($data) ?>">
-                                <label>Godzina rozpoczęcia<select name="godzina" required>
-                                    <option value="">Wybierz godzinę</option>
-                                    <?php foreach ($godziny as $wolny): ?>
-                                        <option value="<?= e($wolny['godzina']) ?>" <?= $godzina === $wolny['godzina'] ? 'selected' : '' ?>><?= e($wolny['godzina']) ?></option>
-                                    <?php endforeach; ?>
-                                </select></label>
-                                <button type="submit">Przejdź do podsumowania</button>
+                    </form>
+                    <?php if ($termin && $tokenPodsumowania !== ''): ?>
+                        <section class="termin" id="podsumowanie">
+                            <h2>Podsumowanie wizyty</h2>
+                            <dl class="szczegoly">
+                                <dt>Usługa</dt><dd><?= e($usluga['nazwa']) ?></dd>
+                                <dt>Salon</dt><dd><?= e($usluga['salon'] . ' — ' . $usluga['miasto']) ?></dd>
+                                <dt>Pracownik</dt><dd><?= e($wybrany['imie'] . ' ' . $wybrany['nazwisko']) ?></dd>
+                                <dt>Data</dt><dd><?= e(rezerwacjaData($data)->format('d.m.Y')) ?></dd>
+                                <dt>Początek</dt><dd><?= e($termin['godzina']) ?></dd>
+                                <dt>Koniec</dt><dd><?= e(substr($termin['data_zakonczenia'], 11, 5)) ?></dd>
+                                <dt>Czas trwania</dt><dd><?= (int) $usluga['czas_trwania'] ?> min</dd>
+                                <dt>Cena</dt><dd><?= e(number_format((float) $usluga['cena'], 2, ',', ' ')) ?> zł</dd>
+                            </dl>
+                            <form method="post" action="<?= e(BASE_URL) ?>/klient/zapisz-rezerwacje.php">
+                                <input type="hidden" name="csrf_token" value="<?= e($_SESSION['csrf_token']) ?>">
+                                <input type="hidden" name="oferta_token" value="<?= e($tokenPodsumowania) ?>">
+                                <label>Uwagi (opcjonalnie, do 1000 znaków)<textarea name="uwagi" maxlength="1000"><?= e($uwagi) ?></textarea></label>
+                                <p class="pomoc">Godziny podajemy w czasie polskim. Termin zostanie zajęty dopiero po zapisaniu rezerwacji. Jeżeli cena lub czas usługi się zmienią, poprosimy o ponowne potwierdzenie.</p>
+                                <button type="submit">Potwierdzam rezerwację</button>
                             </form>
-                        <?php elseif ($data !== '' && !$bladTerminu): ?>
-                            <p>Brak wolnych godzin w tym dniu. Wybierz inną datę.</p>
-                        <?php endif; ?>
-                        <?php if ($termin && $tokenPodsumowania !== ''): ?>
-                            <section class="termin" id="podsumowanie">
-                                <h2>Podsumowanie wizyty</h2>
-                                <dl class="szczegoly">
-                                    <dt>Usługa</dt><dd><?= e($usluga['nazwa']) ?></dd>
-                                    <dt>Salon</dt><dd><?= e($usluga['salon'] . ' — ' . $usluga['miasto']) ?></dd>
-                                    <dt>Pracownik</dt><dd><?= e($wybrany['imie'] . ' ' . $wybrany['nazwisko']) ?></dd>
-                                    <dt>Data</dt><dd><?= e(rezerwacjaData($data)->format('d.m.Y')) ?></dd>
-                                    <dt>Początek</dt><dd><?= e($termin['godzina']) ?></dd>
-                                    <dt>Koniec</dt><dd><?= e(substr($termin['data_zakonczenia'], 11, 5)) ?></dd>
-                                    <dt>Czas trwania</dt><dd><?= (int) $usluga['czas_trwania'] ?> min</dd>
-                                    <dt>Cena</dt><dd><?= e(number_format((float) $usluga['cena'], 2, ',', ' ')) ?> zł</dd>
-                                </dl>
-                                <form method="post" action="<?= e(BASE_URL) ?>/klient/zapisz-rezerwacje.php">
-                                    <input type="hidden" name="csrf_token" value="<?= e($_SESSION['csrf_token']) ?>">
-                                    <input type="hidden" name="oferta_token" value="<?= e($tokenPodsumowania) ?>">
-                                    <label>Uwagi (opcjonalne, do 1000 znaków)<textarea name="uwagi" maxlength="1000"><?= e($uwagi) ?></textarea></label>
-                                    <p class="pomoc">Godziny podajemy w czasie polskim. Termin zostanie zajęty dopiero po zapisaniu rezerwacji. Jeżeli cena lub czas usługi się zmienią, poprosimy o ponowne potwierdzenie.</p>
-                                    <button type="submit">Potwierdzam rezerwację</button>
-                                </form>
-                            </section>
-                        <?php endif; ?>
+                        </section>
                     <?php endif; ?>
                 <?php endif; ?>
             </section>
