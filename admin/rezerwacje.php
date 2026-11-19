@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../includes/auth.php';
 $admin = wymagajRoli('admin');
+require_once __DIR__ . '/../includes/rezerwacje.php';
 
 function rezPole(array $dane, string $klucz): string
 {
@@ -17,18 +18,7 @@ function rezData(string $data): bool
 // Te same reguły decydują o przyciskach w tabeli i o zapisie w bazie.
 function rezDzialania(string $status, string $koniec, string $teraz): array
 {
-    if ($status === 'oczekujaca') {
-        return ['potwierdzona' => 'Potwierdź', 'anulowana' => 'Anuluj'];
-    }
-    if ($status === 'potwierdzona') {
-        $akcje = [];
-        if ($koniec <= $teraz) {
-            $akcje['zrealizowana'] = 'Oznacz jako zrealizowaną';
-        }
-        $akcje['anulowana'] = 'Anuluj';
-        return $akcje;
-    }
-    return [];
+    return rezerwacjaAkcjeStatusu($status, $koniec, new DateTimeImmutable($teraz, rezerwacjaStrefa()));
 }
 
 $statusy = ['oczekujaca' => 'Oczekująca', 'potwierdzona' => 'Potwierdzona',
@@ -59,33 +49,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!$nr) {
             throw new RuntimeException('Nieprawidłowy numer rezerwacji.');
         }
-        $pdo->beginTransaction();
-        $stmt = $pdo->prepare('SELECT status, data_zakonczenia FROM rezerwacje WHERE nr_rezerwacji = ? FOR UPDATE');
-        $stmt->execute([$nr]);
-        $wizyta = $stmt->fetch();
-        if (!$wizyta) {
-            throw new RuntimeException('Nie znaleziono rezerwacji.');
-        }
-        if ($wizyta['status'] !== rezPole($_POST, 'poprzedni')) {
-            throw new RuntimeException('Status zmienił się od otwarcia strony. Sprawdź aktualny wpis w tabeli.');
-        }
-        $teraz = (new DateTimeImmutable('now', $strefa))->format('Y-m-d H:i:s');
-        $dozwolone = rezDzialania($wizyta['status'], $wizyta['data_zakonczenia'], $teraz);
-        if (!isset($dozwolone[$nowy])) {
-            throw new RuntimeException($wizyta['status'] === 'potwierdzona' && $nowy === 'zrealizowana'
-                ? 'Wizytę można oznaczyć jako zrealizowaną dopiero po jej zakończeniu.'
-                : 'Ta zmiana statusu jest niedozwolona.');
-        }
-        $stmt = $pdo->prepare('UPDATE rezerwacje SET status = ? WHERE nr_rezerwacji = ?');
-        $stmt->execute([$nowy, $nr]);
-        // Rezerwacja i historia muszą zapisać się razem. Nazwisko zachowujemy
-        // również w historii, aby późniejsza edycja konta nie zmieniła wpisu.
-        $stmt = $pdo->prepare('INSERT INTO historia_statusow_rezerwacji
-            (nr_rezerwacji, id_administratora, administrator, status_przed, status_po, zmieniono)
-            VALUES (?, ?, ?, ?, ?, ?)');
-        $stmt->execute([$nr, $admin['id_uzytkownika'], $admin['imie'] . ' ' . $admin['nazwisko'],
-            $wizyta['status'], $nowy, $teraz]);
-        $pdo->commit();
+        rezerwacjaZmienStatus($pdo, $admin, (int) $nr, $nowy, rezPole($_POST, 'poprzedni'));
         $_SESSION['rez_sukces'] = 'Rezerwacja nr ' . $nr . ' — nowy status: ' . $statusy[$nowy] . '.';
         przekieruj($powrot);
         exit;
@@ -102,6 +66,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } catch (RuntimeException $ex) {
         if ($pdo->inTransaction()) { $pdo->rollBack(); }
         $blad = $ex->getMessage();
+    } catch (Throwable $ex) {
+        if ($pdo->inTransaction()) { $pdo->rollBack(); }
+        error_log('Rezerwacje: nieoczekiwany błąd typu ' . get_class($ex));
+        $blad = 'Nie udało się zapisać zmiany. Spróbuj ponownie.';
     }
 }
 
@@ -198,7 +166,7 @@ $historia = [];
 $bladHistorii = '';
 if ($nrHistorii) {
     try {
-        $stmt = $pdo->prepare('SELECT administrator, zmieniono, status_przed, status_po
+        $stmt = $pdo->prepare('SELECT wykonawca, rola_wykonawcy, zmieniono, status_przed, status_po
             FROM historia_statusow_rezerwacji WHERE nr_rezerwacji = ? ORDER BY id_zmiany DESC');
         $stmt->execute([$nrHistorii]);
         $historia = $stmt->fetchAll();
@@ -331,7 +299,7 @@ $teraz = (new DateTimeImmutable('now', $strefa))->format('Y-m-d H:i:s');
                             <?php foreach ($historia as $wpis): ?>
                                 <tr>
                                     <td><?= e($wpis['zmieniono']) ?></td>
-                                    <td><?= e($wpis['administrator']) ?></td>
+                                    <td><?= e($wpis['wykonawca']) ?><small><?= e(['admin' => 'Administrator', 'pracownik' => 'Pracownik', 'klient' => 'Klient'][$wpis['rola_wykonawcy']] ?? $wpis['rola_wykonawcy']) ?></small></td>
                                     <td><?= e($statusy[$wpis['status_przed']]) ?></td>
                                     <td><?= e($statusy[$wpis['status_po']]) ?></td>
                                 </tr>

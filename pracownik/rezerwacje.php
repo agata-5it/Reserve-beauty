@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../includes/auth.php';
 $konto = wymagajRoli('pracownik');
+require_once __DIR__ . '/../includes/rezerwacje.php';
 header('Cache-Control: no-store');
 $strefa = new DateTimeZone('Europe/Warsaw');
 $teraz = new DateTimeImmutable('now', $strefa);
@@ -10,6 +11,9 @@ $statusy = ['oczekujaca' => 'Oczekująca', 'potwierdzona' => 'Potwierdzona',
     'zrealizowana' => 'Zrealizowana', 'anulowana' => 'Anulowana'];
 $profil = null;
 $blad = '';
+$statusSukces = $_SESSION['pracownik_status_sukces'] ?? '';
+$statusBlad = $_SESSION['pracownik_status_blad'] ?? '';
+unset($_SESSION['pracownik_status_sukces'], $_SESSION['pracownik_status_blad']);
 $bladFiltrow = '';
 $wizyty = [];
 $liczniki = [];
@@ -151,6 +155,8 @@ $tytulListy = $widoki[$widok] ?? 'Moje wizyty';
                 <button type="submit">Wyloguj się</button>
             </form>
         </header>
+        <?php if ($statusSukces): ?><p class="sukces" role="status"><?= e($statusSukces) ?></p><?php endif; ?>
+        <?php if ($statusBlad): ?><p class="blad" role="alert"><?= e($statusBlad) ?></p><?php endif; ?>
         <?php if ($blad): ?>
             <p class="blad" role="alert"><?= e($blad) ?></p>
         <?php elseif (!$profil): ?>
@@ -160,7 +166,7 @@ $tytulListy = $widoki[$widok] ?? 'Moje wizyty';
             </section>
         <?php else: ?>
             <?php if ((int) $profil['aktywnosc'] !== 1): ?>
-                <p class="pomoc">Twój profil pracownika jest nieaktywny. Nowe wizyty są zablokowane, ale nadal możesz przeglądać dotychczasowe rezerwacje.</p>
+                <p class="pomoc">Twój profil pracownika jest nieaktywny. Możesz przeglądać dotychczasowe rezerwacje. Zmiany statusów może wykonać administrator.</p>
             <?php endif; ?>
             <section class="karta">
                 <h2>Znajdź wizyty</h2>
@@ -198,7 +204,7 @@ $tytulListy = $widoki[$widok] ?? 'Moje wizyty';
                     <?php else: ?>
                         <div class="tabela" tabindex="0" role="region" aria-label="Lista wizyt — na małym ekranie przewiń poziomo">
                             <table>
-                                <thead><tr><th scope="col">Numer</th><th scope="col">Klient</th><th scope="col">Usługa</th><th scope="col">Początek</th><th scope="col">Koniec</th><th scope="col">Status</th></tr></thead>
+                                <thead><tr><th scope="col">Numer</th><th scope="col">Klient</th><th scope="col">Usługa</th><th scope="col">Początek</th><th scope="col">Koniec</th><th scope="col">Status</th><th scope="col">Działania</th></tr></thead>
                                 <tbody>
                                     <?php foreach ($wizyty as $w): ?>
                                         <tr>
@@ -208,6 +214,21 @@ $tytulListy = $widoki[$widok] ?? 'Moje wizyty';
                                             <td><?= e(pracownikData($w['data_rozpoczecia'])) ?></td>
                                             <td><?= e(pracownikData($w['data_zakonczenia'])) ?></td>
                                             <td><span class="status <?= e(isset($statusy[$w['status']]) ? $w['status'] : '') ?>"><?= e($statusy[$w['status']] ?? 'Nieznany status') ?></span></td>
+                                            <td>
+                                                <?php $akcje = (int) $profil['aktywnosc'] === 1 ? rezerwacjaAkcjeStatusu($w['status'], $w['data_zakonczenia'], $teraz) : []; ?>
+                                                <?php if ($akcje): ?>
+                                                    <form class="akcje" method="post" action="<?= e(BASE_URL) ?>/pracownik/zmien-status.php">
+                                                        <input type="hidden" name="csrf_token" value="<?= e($_SESSION['csrf_token']) ?>">
+                                                        <input type="hidden" name="nr_rezerwacji" value="<?= (int) $w['nr_rezerwacji'] ?>">
+                                                        <input type="hidden" name="poprzedni" value="<?= e($w['status']) ?>">
+                                                        <?php foreach ($akcje as $kod => $etykieta): ?>
+                                                            <button type="submit" name="nowy" value="<?= e($kod) ?>" <?php if ($kod === 'anulowana'): ?>onclick="return confirm('Anulować tę wizytę? Nie będzie można jej zwyczajnie przywrócić.');"<?php endif; ?>><?= e($etykieta) ?></button>
+                                                        <?php endforeach; ?>
+                                                    </form>
+                                                <?php else: ?>
+                                                    <span class="pomoc">Brak dostępnych zmian</span>
+                                                <?php endif; ?>
+                                            </td>
                                         </tr>
                                     <?php endforeach; ?>
                                 </tbody>
