@@ -161,8 +161,8 @@ if (!$blad && $wybrany && $data !== '') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Rezerwacja wizyty — Reserve Beauty</title>
-    <link rel="stylesheet" href="<?= e(BASE_URL) ?>/css/klient.css?v=2">
-    <script src="<?= e(BASE_URL) ?>/js/rezerwacje.js?v=1" defer></script>
+    <link rel="stylesheet" href="<?= e(BASE_URL) ?>/css/klient.css?v=3">
+    <script src="<?= e(BASE_URL) ?>/js/rezerwacje.js?v=3" defer></script>
 </head>
 <body class="strona-klienta rezerwacja">
     <nav class="menu-klienta" aria-label="Menu klienta">
@@ -216,6 +216,18 @@ if (!$blad && $wybrany && $data !== '') {
                                 </label>
                             <?php endforeach; ?>
                         </fieldset>
+                        <section id="kalendarz-terminow" class="kalendarz-klienta" hidden aria-label="Kalendarz dostępnych dni">
+                            <div class="kalendarz-nawigacja">
+                                <button type="button" id="miesiac-wstecz" aria-label="Poprzedni miesiąc">←</button>
+                                <h2 id="miesiac-tytul"></h2>
+                                <button type="button" id="miesiac-dalej" aria-label="Następny miesiąc">→</button>
+                            </div>
+                            <p id="kalendarz-komunikat" role="status" aria-live="polite"></p>
+                            <div class="kalendarz-tydzien" aria-hidden="true"><span>Pon</span><span>Wt</span><span>Śr</span><span>Czw</span><span>Pt</span><span>Sob</span><span>Nd</span></div>
+                            <div id="kalendarz-dni" class="kalendarz-dni" aria-busy="false"></div>
+                            <p class="kalendarz-legenda">Różowe dni: wolne godziny · Szare: niedostępne · Bordowy: wybrany dzień</p>
+                            <button type="button" id="kalendarz-ponow" hidden>Spróbuj ponownie</button>
+                        </section>
                         <label>Data wizyty
                             <input type="date" name="data" required min="<?= e(rezerwacjaTeraz()->format('Y-m-d')) ?>" max="9999-12-30" value="<?= e($data) ?>">
                         </label>

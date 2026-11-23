@@ -38,6 +38,58 @@ try {
             terminyJson(400, ['ok' => false, 'komunikat' => 'Wybierz poprawną usługę i pracownika.']);
         }
     }
+    // Widok miesiąca: cztery odczyty zamiast osobnego zestawu zapytań na każdy dzień.
+    if (isset($_GET['miesiac'])) {
+        $miesiac = $_GET['miesiac'];
+        $poczatek = is_string($miesiac) && preg_match('/\A[0-9]{4}-[0-9]{2}\z/', $miesiac)
+            ? rezerwacjaData($miesiac . '-01') : null;
+        if (!$poczatek) {
+            terminyJson(400, ['ok' => false, 'komunikat' => 'Wybierz poprawny miesiąc.']);
+        }
+        $ostatni = $poczatek->format('Y-m-t');
+        $granica = $miesiac === '9999-12' ? '9999-12-31 00:00:00'
+            : $poczatek->modify('+1 month')->format('Y-m-d H:i:s');
+        $usluga = rezerwacjaUslugaPracownika($pdo, (int) $id['id_pracownika'], (int) $id['id_uslugi']);
+        $q = $pdo->prepare('SELECT dzien_tygodnia, czas_rozpoczecia, czas_zakonczenia
+            FROM dostepnosc_pracownikow WHERE id_pracownika = ? ORDER BY czas_rozpoczecia');
+        $q->execute([$id['id_pracownika']]);
+        $grafik = [];
+        foreach ($q->fetchAll(PDO::FETCH_ASSOC) as $wiersz) {
+            $grafik[(int) $wiersz['dzien_tygodnia']][] = $wiersz;
+        }
+        $q = $pdo->prepare("SELECT data_od, data_do FROM urlopy WHERE id_pracownika = ?
+            AND status = 'zaplanowany' AND data_od <= ? AND data_do >= ?");
+        $q->execute([$id['id_pracownika'], $ostatni, $poczatek->format('Y-m-d')]);
+        $urlopy = $q->fetchAll(PDO::FETCH_ASSOC);
+        $q = $pdo->prepare("SELECT data_rozpoczecia, data_zakonczenia FROM rezerwacje
+            WHERE id_pracownika = ? AND status <> 'anulowana'
+            AND data_rozpoczecia < ? AND data_zakonczenia > ?");
+        $q->execute([$id['id_pracownika'], $granica, $poczatek->format('Y-m-d H:i:s')]);
+        $wizyty = $q->fetchAll(PDO::FETCH_ASSOC);
+        $teraz = rezerwacjaTeraz();
+        $dni = [];
+        for ($nr = 1; $nr <= (int) $poczatek->format('t'); $nr++) {
+            $dzien = $poczatek->modify('+' . ($nr - 1) . ' days');
+            $dataDnia = $dzien->format('Y-m-d');
+            $urlop = false;
+            foreach ($urlopy as $wpis) {
+                if ($wpis['data_od'] <= $dataDnia && $wpis['data_do'] >= $dataDnia) {
+                    $urlop = true;
+                    break;
+                }
+            }
+            $godziny = rezerwacjaData($dataDnia) ? rezerwacjaWyliczGodziny(
+                $dataDnia, (int) $usluga['czas_trwania'], $grafik[(int) $dzien->format('N')] ?? [],
+                $wizyty, $urlop, 15, $teraz
+            ) : [];
+            // Udostępniamy tylko liczbę wolnych godzin, bez danych cudzych wizyt.
+            $dni[] = ['data' => $dataDnia, 'liczba' => count($godziny)];
+        }
+        terminyJson(200, ['ok' => true, 'id_uslugi' => (int) $id['id_uslugi'],
+            'id_pracownika' => (int) $id['id_pracownika'], 'miesiac' => $miesiac,
+            'dzisiaj' => $teraz->format('Y-m-d'), 'dni' => $dni]);
+    }
+
     $data = $_GET['data'] ?? null;
     if (!is_string($data) || !rezerwacjaData($data) || $data < rezerwacjaTeraz()->format('Y-m-d')) {
         terminyJson(400, ['ok' => false, 'komunikat' => 'Wybierz poprawną datę, nie wcześniejszą niż dzisiaj.']);
