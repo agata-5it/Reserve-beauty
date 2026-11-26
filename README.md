@@ -73,8 +73,12 @@ Aplikacja dedykowana jest branży beauty. Rozwiązuje problem ręcznego umawiani
 
 ## Rozszerzenia
 
-1. **Urlopy i przerwy połączone z dostępnością** — urlop blokuje rzeczywiste rezerwowanie. W jednym salonie nie mogą nakładać się zaplanowane urlopy dwóch pracowników; różne salony mogą mieć urlopy równocześnie. Urlop nie może kolidować z oczekującą lub potwierdzoną wizytą. Grafik dopuszcza oddzielne przedziały pracy.
-2. **Wspólna historia statusów** — działania wszystkich trzech ról trafiają do historii w tej samej transakcji co zmiana rezerwacji.
-3. **AJAX dostępnych godzin** — zmiana pracownika lub daty aktualizuje godziny bez przeładowania. Obsługiwane są wczytywanie, brak terminów, błąd oraz pomijanie spóźnionych odpowiedzi. Zmiana wyboru wyłącza stare podsumowanie. Kliknięcie godziny otwiera podsumowanie w PHP; bez JavaScript działa zwykły formularz.
+## Rozszerzenia
 
-Kalendarz urlopów administratora jest dodatkowym widokiem danych. O dostępności decydują kontrole w PHP, nie sam wygląd kalendarza. Nie deklarujemy automatycznego uwzględniania świąt państwowych, jeśli nie dodano ich do logiki.
+1. **Urlopy i przerwy połączone z dostępnością** — urlop blokuje rzeczywiste rezerwowanie. W jednym salonie nie mogą nakładać się zaplanowane urlopy dwóch pracowników; różne salony mogą mieć urlopy równocześnie. Urlop nie może kolidować z oczekującą lub potwierdzoną wizytą. Grafik dopuszcza oddzielne przedziały pracy.
+2. **Przekładanie wizyt** — możliwość zmiany terminu istniejącej rezerwacji z ponownym sprawdzeniem grafiku pracownika, urlopów oraz braku konfliktów z innymi wizytami po stronie serwera.
+3. **Widoki kalendarza (dla administratora i klienta)** — podgląd wizyt i urlopów w formie kalendarza. O dostępności decydują kontrole w PHP, nie sam wygląd kalendarza.
+4. **Wspólna historia statusów rezerwacji** — działania wszystkich trzech ról trafiają do historii w tej samej transakcji co zmiana rezerwacji.
+5. **AJAX dostępnych godzin** — zmiana pracownika lub daty aktualizuje godziny bez przeładowania. Obsługiwane są wczytywanie, brak terminów, błąd oraz pomijanie spóźnionych odpowiedzi. Zmiana wyboru wyłącza stare podsumowanie. Kliknięcie godziny otwiera podsumowanie w PHP; bez JavaScript działa zwykły formularz.
+
+Nie deklarujemy automatycznego uwzględniania świąt państwowych, jeśli nie dodano ich do logiki.
