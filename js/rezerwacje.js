@@ -49,6 +49,7 @@
         try {
             const url = new URL(formularz.dataset.terminyUrl, window.location.href);
             url.search = new URLSearchParams(wybrane).toString();
+            if (formularz.dataset.rezerwacja) url.searchParams.set('nr_rezerwacji', formularz.dataset.rezerwacja);
             const odpowiedz = await fetch(url, {
                 method: 'GET', credentials: 'same-origin', cache: 'no-store',
                 headers: { Accept: 'application/json' }, signal: aktualnyKontroler.signal
@@ -164,6 +165,7 @@
         try {
             const url = new URL(form.dataset.terminyUrl, location.href);
             url.search = new URLSearchParams({ id_uslugi: service.value, id_pracownika: person, miesiac: requestedMonth });
+            if (form.dataset.rezerwacja) url.searchParams.set('nr_rezerwacji', form.dataset.rezerwacja);
             const response = await fetch(url, { credentials: 'same-origin', cache: 'no-store', headers: { Accept: 'application/json' }, signal: request.signal });
             if (current !== sequence) return;
             if (response.redirected || !(response.headers.get('content-type') || '').includes('application/json')) {
