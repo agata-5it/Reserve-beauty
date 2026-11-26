@@ -75,6 +75,20 @@ try {
     http_response_code(503);
     $blad = 'Nie udało się pobrać Twoich rezerwacji. Odśwież stronę, aby spróbować ponownie.';
 }
+// Historia dotyczy wyłącznie wizyt zalogowanego klienta widocznych na tej stronie.
+$historiaTerminow = [];
+try {
+    $numery = [];
+    foreach ($sekcje as $grupa) foreach ($grupa['wizyty'] as $wpis) $numery[] = (int) $wpis['nr_rezerwacji'];
+    if ($numery) {
+        $q = $pdo->prepare('SELECT h.* FROM historia_terminow_rezerwacji h
+            JOIN rezerwacje r ON r.nr_rezerwacji = h.nr_rezerwacji
+            WHERE r.id_uzytkownika = ? AND r.nr_rezerwacji IN (' . implode(',', array_fill(0, count($numery), '?')) . ')
+            ORDER BY h.id DESC');
+        $q->execute(array_merge([$idKlienta], $numery));
+        foreach ($q->fetchAll(PDO::FETCH_ASSOC) as $h) $historiaTerminow[$h['nr_rezerwacji']][] = $h;
+    }
+} catch (PDOException $e) { error_log('Historia terminów: ' . $e->getCode()); }
 ?>
 <!DOCTYPE html>
 <html lang="pl">
@@ -148,12 +162,22 @@ try {
                                             </td>
                                             <td>
                                                 <?php if (in_array($w['status'], ['oczekujaca', 'potwierdzona'], true) && $w['data_rozpoczecia'] > $teraz): ?>
+                                                    <a class="przycisk" href="<?= e(BASE_URL) ?>/klient/przeloz-rezerwacje.php?nr_rezerwacji=<?= (int) $w['nr_rezerwacji'] ?>">Przełóż wizytę</a>
                                                     <form method="post" action="<?= e(BASE_URL) ?>/klient/anuluj-rezerwacje.php"
                                                           onsubmit="return confirm('Czy na pewno anulować tę wizytę?');">
                                                         <input type="hidden" name="csrf_token" value="<?= e($_SESSION['csrf_token']) ?>">
                                                         <input type="hidden" name="nr_rezerwacji" value="<?= (int) $w['nr_rezerwacji'] ?>">
                                                         <button type="submit">Anuluj</button>
                                                     </form>
+                                                <?php endif; ?>
+                                                <?php if (!empty($historiaTerminow[$w['nr_rezerwacji']])): ?>
+                                                    <details><summary>Historia terminów</summary>
+                                                    <?php foreach ($historiaTerminow[$w['nr_rezerwacji']] as $h): ?>
+                                                        <p><?= e(listaData($h['zmieniono'])) ?><br>
+                                                        <?= e(listaData($h['poprzedni_poczatek'])) ?> – <?= e(listaData($h['poprzedni_koniec'])) ?><br>
+                                                        → <?= e(listaData($h['nowy_poczatek'])) ?> – <?= e(listaData($h['nowy_koniec'])) ?></p>
+                                                    <?php endforeach; ?>
+                                                    </details>
                                                 <?php endif; ?>
                                                 <details>
                                                     <summary>Uwagi do wizyty</summary>
