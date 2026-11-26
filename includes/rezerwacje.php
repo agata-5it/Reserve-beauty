@@ -1,5 +1,5 @@
 <?php
-// Wspólne funkcje. Ten plik nie wyświetla strony i nie zapisuje rezerwacji.
+// Wspólne funkcje dostępności oraz transakcyjnej zmiany statusu i historii.
 // Połączenie $pdo przekazujemy z istniejącego includes/auth.php.
 // W plikach korzystających z funkcji używaj require_once.
 date_default_timezone_set('Europe/Warsaw');
@@ -266,8 +266,120 @@ function rezerwacjaCzyZmianaStatusu(string $status, string $nowyStatus, string $
     return in_array($nowyStatus, rezerwacjaDozwoloneStatusy($status, $dataZakonczenia), true);
 }
 
-// UWAGA DOTYCZĄCA PRZYSZŁEGO ZAPISU:
-// Wynik dostępności jest podglądem, a nie zablokowaniem terminu.
-// Przed INSERT trzeba ponownie sprawdzić dane w transakcji z blokadą pracownika.
-// Potrzebne są tabele InnoDB, wspólna kolejność blokad i aktualne odczyty SQL.
-// Ten plik celowo nie rozpoczyna transakcji ani nie wykonuje INSERT/UPDATE.
+
+// Wspólne etykiety przycisków administratora i pracownika.
+function rezerwacjaAkcjeStatusu(string $status, string $koniec, ?DateTimeImmutable $teraz = null): array
+{
+    $etykiety = ['potwierdzona' => 'Potwierdź', 'anulowana' => 'Anuluj',
+        'zrealizowana' => 'Oznacz jako zrealizowaną'];
+    $wynik = [];
+    foreach (rezerwacjaDozwoloneStatusy($status, $koniec, $teraz) as $kod) {
+        $wynik[$kod] = $etykiety[$kod];
+    }
+    return $wynik;
+}
+
+// Funkcja nie przyjmuje ID właściciela z formularza. $konto pochodzi z wymagajRoli().
+// Endpoint musi wcześniej sprawdzić POST oraz sprawdzCsrf().
+// Wymagane InnoDB i migracja historii. Brak historii powoduje rollback statusu.
+function rezerwacjaZmienStatus(
+    PDO $pdo,
+    array $konto,
+    int $numer,
+    string $nowy,
+    ?string $poprzedni = null
+): void {
+    $idKonta = (int) ($konto['id_uzytkownika'] ?? 0);
+    $rola = $konto['rola'] ?? '';
+    $statusy = ['oczekujaca', 'potwierdzona', 'zrealizowana', 'anulowana'];
+    if ($numer < 1 || $idKonta < 1 || !in_array($rola, ['klient', 'pracownik', 'admin'], true)
+        || !in_array($nowy, $statusy, true)) {
+        throw new RuntimeException('Nieprawidłowe dane zmiany statusu.');
+    }
+    if ($rola !== 'klient' && !in_array($poprzedni, $statusy, true)) {
+        throw new RuntimeException('Brakuje poprawnego poprzedniego statusu. Odśwież listę.');
+    }
+    if ($pdo->inTransaction()) {
+        throw new RuntimeException('Zmiana statusu wymaga osobnej transakcji.');
+    }
+
+    // Odczyt służy tylko do wybrania blokady. Uprawnienia sprawdzamy ponownie pod blokadą.
+    if ($rola === 'pracownik') {
+        $q = $pdo->prepare('SELECT id_pracownika FROM pracownicy WHERE id_uzytkownika = ?');
+        $q->execute([$idKonta]);
+    } else {
+        $sql = 'SELECT id_pracownika FROM rezerwacje WHERE nr_rezerwacji = ?';
+        $parametry = [$numer];
+        if ($rola === 'klient') { $sql .= ' AND id_uzytkownika = ?'; $parametry[] = $idKonta; }
+        $q = $pdo->prepare($sql);
+        $q->execute($parametry);
+    }
+    $idPracownika = (int) $q->fetchColumn();
+    if (!$idPracownika) {
+        throw new RuntimeException($rola === 'pracownik'
+            ? 'Brak profilu pracownika. Poproś administratora o przypisanie konta.'
+            : 'Nie znaleziono dostępnej dla Ciebie rezerwacji.');
+    }
+
+    $pdo->beginTransaction();
+    try {
+        // Pracownik przed rezerwacją, zgodnie z zapisem wizyty i zmianami grafiku.
+        // Nie blokujemy salonu: nie zmieniamy terminu, pracownika ani salonu wizyty.
+        $q = $pdo->prepare('SELECT id_pracownika, id_uzytkownika, aktywnosc
+            FROM pracownicy WHERE id_pracownika = ? FOR UPDATE');
+        $q->execute([$idPracownika]);
+        $profil = $q->fetch(PDO::FETCH_ASSOC);
+        if (!$profil) { throw new RuntimeException('Profil pracownika już nie istnieje. Odśwież listę.'); }
+        if ($rola === 'pracownik' && ((int) $profil['id_uzytkownika'] !== $idKonta || (int) $profil['aktywnosc'] !== 1)) {
+            throw new RuntimeException('Nie masz aktywnego profilu pracownika. Skontaktuj się z administratorem.');
+        }
+
+        // Aktualna rola, aktywność i nazwisko wykonawcy, nie dane z POST.
+        $q = $pdo->prepare('SELECT id_uzytkownika, imie, nazwisko, rola, aktywny
+            FROM uzytkownicy WHERE id_uzytkownika = ? FOR UPDATE');
+        $q->execute([$idKonta]);
+        $wykonawca = $q->fetch(PDO::FETCH_ASSOC);
+        if (!$wykonawca || (int) $wykonawca['aktywny'] !== 1 || $wykonawca['rola'] !== $rola) {
+            throw new RuntimeException('Uprawnienia konta zmieniły się. Zaloguj się ponownie.');
+        }
+
+        $sql = 'SELECT nr_rezerwacji, id_pracownika, status, data_rozpoczecia, data_zakonczenia
+            FROM rezerwacje WHERE nr_rezerwacji = ?';
+        $parametry = [$numer];
+        if ($rola === 'pracownik') { $sql .= ' AND id_pracownika = ?'; $parametry[] = $idPracownika; }
+        if ($rola === 'klient') { $sql .= ' AND id_uzytkownika = ?'; $parametry[] = $idKonta; }
+        $q = $pdo->prepare($sql . ' FOR UPDATE');
+        $q->execute($parametry);
+        $wizyta = $q->fetch(PDO::FETCH_ASSOC);
+        if (!$wizyta) { throw new RuntimeException('Nie znaleziono dostępnej dla Ciebie rezerwacji.'); }
+        if ((int) $wizyta['id_pracownika'] !== $idPracownika) {
+            throw new RuntimeException('Pracownik wizyty zmienił się. Odśwież listę i spróbuj ponownie.');
+        }
+        if ($poprzedni !== null && $wizyta['status'] !== $poprzedni) {
+            throw new RuntimeException('Status zmienił się od otwarcia strony. Sprawdź aktualny wpis w tabeli.');
+        }
+        // Czas sprawdzamy po oczekiwaniu na wszystkie blokady.
+        $teraz = rezerwacjaTeraz();
+        if (!in_array($nowy, rezerwacjaDozwoloneStatusy($wizyta['status'], $wizyta['data_zakonczenia'], $teraz), true)) {
+            throw new RuntimeException($wizyta['status'] === 'potwierdzona' && $nowy === 'zrealizowana'
+                ? 'Wizytę można oznaczyć jako zrealizowaną dopiero po jej zakończeniu.'
+                : 'Ta zmiana statusu jest niedozwolona.');
+        }
+        if ($rola === 'klient' && ($nowy !== 'anulowana' || $wizyta['data_rozpoczecia'] <= $teraz->format('Y-m-d H:i:s'))) {
+            throw new RuntimeException('Klient może tylko anulować własną wizytę, która jeszcze się nie rozpoczęła.');
+        }
+
+        $q = $pdo->prepare('UPDATE rezerwacje SET status = ? WHERE nr_rezerwacji = ? AND status = ?');
+        $q->execute([$nowy, $numer, $wizyta['status']]);
+        if ($q->rowCount() !== 1) { throw new RuntimeException('Nie udało się zmienić statusu. Odśwież listę.'); }
+        $q = $pdo->prepare('INSERT INTO historia_statusow_rezerwacji
+            (nr_rezerwacji, id_uzytkownika_zmieniajacego, wykonawca, rola_wykonawcy, status_przed, status_po, zmieniono)
+            VALUES (?, ?, ?, ?, ?, ?, ?)');
+        $q->execute([$numer, $idKonta, $wykonawca['imie'] . ' ' . $wykonawca['nazwisko'], $rola,
+            $wizyta['status'], $nowy, $teraz->format('Y-m-d H:i:s')]);
+        $pdo->commit();
+    } catch (Throwable $wyjatek) {
+        if ($pdo->inTransaction()) { $pdo->rollBack(); }
+        throw $wyjatek;
+    }
+}

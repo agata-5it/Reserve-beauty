@@ -9,6 +9,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
 
 require_once __DIR__ . '/../includes/auth.php';
 $klient = wymagajRoli('klient');
+require_once __DIR__ . '/../includes/rezerwacje.php';
 header('Cache-Control: no-store');
 $idKlienta = (int) $klient['id_uzytkownika'];
 $blad = '';
@@ -25,55 +26,7 @@ try {
         throw new RuntimeException('Nieprawidłowy numer rezerwacji.');
     }
 
-    // Wstępny odczyt wskazuje pracownika do zablokowania.
-    // Nie ujawniamy, czy podany numer należy do kogoś innego.
-    $q = $pdo->prepare('SELECT id_pracownika FROM rezerwacje
-        WHERE nr_rezerwacji = ? AND id_uzytkownika = ?');
-    $q->execute([$numer, $idKlienta]);
-    $idPracownika = (int) $q->fetchColumn();
-    if (!$idPracownika) {
-        throw new RuntimeException('Nie znaleziono tej rezerwacji na Twoim koncie.');
-    }
-
-    $pdo->beginTransaction();
-    // Jak w zapisie wizyty: pracownik przed rezerwacją. Nie blokujemy salonu,
-    // bo ta operacja wyłącznie zwalnia termin i nie zmienia salonu ani urlopów.
-    $q = $pdo->prepare('SELECT id_pracownika FROM pracownicy WHERE id_pracownika = ? FOR UPDATE');
-    $q->execute([$idPracownika]);
-    if (!$q->fetch()) {
-        throw new RuntimeException('Dane pracownika zmieniły się. Odśwież listę i spróbuj ponownie.');
-    }
-
-    // To jest aktualny odczyt pod blokadą, również po oczekiwaniu na inną transakcję.
-    $q = $pdo->prepare('SELECT nr_rezerwacji, id_pracownika, status, data_rozpoczecia
-        FROM rezerwacje WHERE nr_rezerwacji = ? AND id_uzytkownika = ? FOR UPDATE');
-    $q->execute([$numer, $idKlienta]);
-    $rezerwacja = $q->fetch(PDO::FETCH_ASSOC);
-    if (!$rezerwacja) {
-        throw new RuntimeException('Nie znaleziono tej rezerwacji na Twoim koncie.');
-    }
-    if ((int) $rezerwacja['id_pracownika'] !== $idPracownika) {
-        throw new RuntimeException('Pracownik wizyty został zmieniony. Odśwież listę i spróbuj ponownie.');
-    }
-    if (!in_array($rezerwacja['status'], ['oczekujaca', 'potwierdzona'], true)) {
-        throw new RuntimeException('Możesz anulować tylko rezerwację oczekującą lub potwierdzoną. Ta wizyta ma już inny status.');
-    }
-
-    // Czas ustalamy PO uzyskaniu blokad, aby uwzględnić ewentualne oczekiwanie.
-    $teraz = (new DateTimeImmutable('now', new DateTimeZone('Europe/Warsaw')))->format('Y-m-d H:i:s');
-    if ($rezerwacja['data_rozpoczecia'] <= $teraz) {
-        throw new RuntimeException('Nie można anulować wizyty, która już się rozpoczęła lub minęła.');
-    }
-
-    // Zachowujemy cały rekord, jego cenę, godziny i uwagi. Zmieniamy tylko status.
-    $q = $pdo->prepare("UPDATE rezerwacje SET status = 'anulowana'
-        WHERE nr_rezerwacji = ? AND id_uzytkownika = ?
-          AND status = ? AND data_rozpoczecia > ?");
-    $q->execute([$numer, $idKlienta, $rezerwacja['status'], $teraz]);
-    if ($q->rowCount() !== 1) {
-        throw new RuntimeException('Nie udało się anulować wizyty. Odśwież listę i sprawdź jej aktualny status.');
-    }
-    $pdo->commit();
+    rezerwacjaZmienStatus($pdo, $klient, (int) $numer, 'anulowana');
     $_SESSION['anulowanie_sukces'] = 'Anulowano rezerwację nr ' . $numer . '. Wizyta pozostała w historii, a termin został zwolniony.';
     unset($_SESSION['anulowanie_blad']);
 } catch (PDOException $wyjatek) {

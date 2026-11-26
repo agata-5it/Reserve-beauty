@@ -1,4 +1,3 @@
-
 (() => {
     'use strict';
     const formularz = document.getElementById('wybor-terminu');
